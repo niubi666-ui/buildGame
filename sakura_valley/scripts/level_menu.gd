@@ -6,7 +6,10 @@ const GameConfig = preload("res://scripts/game_config.gd")
 const TerrainData = preload("res://scripts/terrain_data.gd")
 
 const MAP_PIXELS := 120
+## Cards are this wide at most, and narrow down so every level fits across the screen.
 const CARD_WIDTH := 312.0
+const CARD_GAP := 22.0
+const ROW_WIDTH := 1800.0
 const WATER := Color("5fa9cf")
 const CLOUD := Color("eef2f6")
 const CLOUD_SHADE := Color("cfdbe6")
@@ -16,6 +19,7 @@ const ROCK := Color("8d8478")
 const ROAD := Color("d4b07a")
 
 var maps_to_draw: Array[Dictionary] = []
+var card_width := CARD_WIDTH
 var loading: Control
 
 
@@ -39,8 +43,10 @@ func _ready() -> void:
 	middle.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(middle)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 22)
+	row.add_theme_constant_override("separation", int(CARD_GAP))
 	middle.add_child(row)
+	var count := maxi(GameConfig.level_order().size(), 1)
+	card_width = minf(CARD_WIDTH, (ROW_WIDTH - CARD_GAP * float(count - 1)) / float(count))
 	for id: String in GameConfig.level_order():
 		row.add_child(_build_card(id))
 	page.add_child(_build_footer())
@@ -120,7 +126,7 @@ func _build_card(id: String) -> Control:
 	var level: Dictionary = GameConfig.level(id)
 	var card := PanelContainer.new()
 	card.theme_type_variation = "CardPanel"
-	card.custom_minimum_size = Vector2(CARD_WIDTH, 0.0)
+	card.custom_minimum_size = Vector2(card_width, 0.0)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 10)
 	card.add_child(stack)
@@ -129,7 +135,7 @@ func _build_card(id: String) -> Control:
 	frame.add_theme_stylebox_override("panel", Kit.box(Kit.PAPER_DEEP, 14, Vector2(4.0, 4.0)))
 	stack.add_child(frame)
 	var map := TextureRect.new()
-	map.custom_minimum_size = Vector2(CARD_WIDTH - 44.0, CARD_WIDTH - 44.0)
+	map.custom_minimum_size = Vector2(card_width - 44.0, card_width - 44.0)
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	map.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -146,14 +152,7 @@ func _build_card(id: String) -> Control:
 	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	badge.add_child(_label(parts[0] if parts.size() > 1 else "", "BadgeLabel"))
 	head.add_child(badge)
-	if GameConfig.is_cleared(id):
-		var done := PanelContainer.new()
-		done.add_theme_stylebox_override("panel", Kit.box(Kit.SAKURA_PALE, 7, Vector2(6.0, 0.0)))
-		done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var done_label := _label("已守住", "BadgeLabel")
-		done_label.add_theme_color_override("font_color", Kit.SAKURA_INK)
-		done.add_child(done_label)
-		head.add_child(done)
+	head.add_child(_stars(GameConfig.best_stars(id)))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
@@ -162,7 +161,7 @@ func _build_card(id: String) -> Control:
 
 	var about := _label(String(level.get("card", "")), "MutedLabel")
 	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	about.custom_minimum_size = Vector2(CARD_WIDTH - 40.0, 92.0)
+	about.custom_minimum_size = Vector2(card_width - 40.0, 92.0)
 	about.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(about)
 
@@ -173,10 +172,22 @@ func _build_card(id: String) -> Control:
 	go.pressed.connect(_start.bind(id))
 	stack.add_child(go)
 
-	card.pivot_offset = Vector2(CARD_WIDTH * 0.5, 300.0)
+	card.pivot_offset = Vector2(card_width * 0.5, 300.0)
 	card.mouse_entered.connect(_lift.bind(card, true))
 	card.mouse_exited.connect(_lift.bind(card, false))
 	return card
+
+
+## The best result so far: three stars, filled for each one earned.
+func _stars(earned: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 1)
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.tooltip_text = "最好成绩 %d / 3 颗星" % earned if earned > 0 else "还没守住过"
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	for n in 3:
+		row.add_child(_icon("star" if n < earned else "star_empty", 22.0))
+	return row
 
 
 ## Petals for difficulty: filled for each step up.

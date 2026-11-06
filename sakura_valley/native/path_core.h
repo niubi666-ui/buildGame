@@ -8,6 +8,10 @@ namespace pathcore {
 
 enum Mode : uint8_t { MODE_WALK = 0, MODE_CLIMB = 1, MODE_BOAT = 2, MODE_BRIDGE = 3, MODE_GOAL = 4, MODE_BUILT_BRIDGE = 5, MODE_TUNNEL = 6 };
 
+// How a type crosses water. Boats ride on the surface, swimmers wade with their heads above it,
+// and divers stay under it, where no tower can see them.
+enum WaterStyle : uint8_t { WATER_BOAT = 0, WATER_SWIM = 1, WATER_DIVE = 2 };
+
 // What a route may use beyond walking and finished bridges and tunnels.
 enum Allow : int { ALLOW_CLIMB = 1, ALLOW_BOAT = 2, ALLOW_BRIDGE = 4, ALLOW_ALL = 7 };
 
@@ -17,6 +21,8 @@ struct Settings {
 	float tunnel_speed = 1.15f; // tunnels are smooth, so everyone walks a little faster
 	// Dry ground below this is open sky: nobody can walk or climb there, though a bridge can span it.
 	float void_level = -1000.0f;
+	// Walking and climbing speed on a drained riverbed, as a share of normal.
+	float mud_speed = 1.0f;
 };
 
 struct UnitType {
@@ -34,6 +40,7 @@ struct UnitType {
 	float g = 0.0f;
 	float b = 0.0f;
 	float scale = 1.35f;
+	uint8_t water_style = WATER_BOAT;
 };
 
 struct Bridge {
@@ -160,6 +167,7 @@ public:
 	// Where enemies set out from, used by previews and tower coverage. Two floats per gate: x, z.
 	void set_gates(const std::vector<float> &gates);
 	// Heights and the water mask are square grids of src_res values per side. Uses every second one.
+	// In the water mask, 1 is water and 2 is mud: a riverbed that has been drained.
 	void set_terrain(const float *heights, const uint8_t *water, int src_res, float size, float water_level);
 	// Works out the fastest way home from every cell, for each active type.
 	void solve(float goal_x, float goal_z, float goal_radius);
@@ -228,6 +236,8 @@ public:
 	std::vector<float> bridge_state() const;
 	void forget_bridges();
 	int arrived() const { return arrived_; }
+	/// How many of each type reached home this wave, indexed by type.
+	const std::vector<float> &arrived_types() const { return arrived_types_; }
 	int active() const { return active_; }
 	int bridge_candidates() const { return static_cast<int>(bridges_.size()); }
 
@@ -274,6 +284,7 @@ private:
 	std::vector<uint8_t> goal_mask_;
 	std::vector<float> height_;
 	std::vector<uint8_t> wet_;
+	std::vector<uint8_t> mud_;
 	std::vector<UnitType> types_;
 	std::vector<int> active_types_;
 	std::vector<Field> fields_;
@@ -299,6 +310,7 @@ private:
 	std::vector<Fire> fires_;
 	int next_tower_id_ = 1;
 	int arrived_ = 0;
+	std::vector<float> arrived_types_;
 	int active_ = 0;
 	int kills_ = 0;
 	float earned_ = 0.0f;
@@ -326,7 +338,11 @@ private:
 	void damage_unit(Unit &unit, float damage, int tower_id, bool flash = true);
 	void apply_effects(Unit &unit, const Effects &effects);
 	const Tower *find_tower(int id) const;
-	bool is_hidden(const Unit &unit) const { return unit.mode == MODE_TUNNEL && !unit.waiting && unit.via <= -2; }
+	bool in_tunnel(const Unit &unit) const { return unit.mode == MODE_TUNNEL && !unit.waiting && unit.via <= -2; }
+	// Under water from one wet cell to the next, so only the step in or out shows above the surface.
+	bool submerged(const Unit &unit) const;
+	// Out of every tower's reach: inside a tunnel, or a diver under water.
+	bool is_hidden(const Unit &unit) const { return in_tunnel(unit) || submerged(unit); }
 	void unit_position(const Unit &unit, float &x, float &y, float &z, float &dx, float &dz, bool &on_water) const;
 	float ground_height(float x, float z) const;
 	bool in_cone(const Cone &cone, float x, float y, float z) const;

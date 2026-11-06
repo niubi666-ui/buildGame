@@ -16,7 +16,7 @@ func run(main: Node3D, dir: String) -> void:
 	for id: String in ids:
 		flat.append(float(paths.type_index[id]))
 	core.set_active_types(flat, flat.size())
-	core.set_terrain(terrain.heights, terrain.water_mask, terrain.RES, terrain.SIZE, terrain.WATER_LEVEL)
+	core.set_terrain(terrain.heights, terrain.route_water_mask(), terrain.RES, terrain.SIZE, terrain.WATER_LEVEL)
 	core.solve(paths.home.x, paths.home.y, paths.goal_radius)
 	print("CHECK level ", main.level_id, " bridge candidates ", core.bridges().size())
 	for gate: Dictionary in paths.gates:
@@ -27,6 +27,8 @@ func run(main: Node3D, dir: String) -> void:
 			var points: PackedFloat32Array = core.trace(type, point.x, point.y)
 			var time: float = core.cost_at(type, point.x, point.y)
 			print("CHECK   %s %s 秒 %s | %s" % [id, "无路" if time > 1e8 else str(int(time)), terrain.shape.describe_route(points), _modes(points)])
+			if "--trace" in OS.get_cmdline_user_args():
+				print("CHECK     path ", _waypoints(points))
 	if dir != "":
 		main._capture(dir, PackedStringArray(main.view_order))
 	else:
@@ -45,6 +47,53 @@ func _modes(points: PackedFloat32Array) -> String:
 	for mode: int in totals:
 		parts.append("%s %d 米" % [MODES[mode] if mode < MODES.size() else str(mode), int(totals[mode])])
 	return "，".join(parts)
+
+
+## Every few metres of a trace as x,z,height and the mode's first letter, to see where a route really goes.
+func _waypoints(points: PackedFloat32Array) -> String:
+	var parts: Array[String] = []
+	var last := Vector2(INF, INF)
+	for n in range(0, points.size(), 4):
+		var at := Vector2(points[n], points[n + 2])
+		if at.distance_to(last) < 8.0 and n + 4 < points.size():
+			continue
+		last = at
+		var mode := int(points[n + 3])
+		parts.append("%d,%d,%d%s" % [int(at.x), int(at.y), int(points[n + 1]), MODES[mode] if mode < MODES.size() else str(mode)])
+	return " ".join(parts)
+
+
+## --watch=x,z[,dist]: plays the first wave with no towers and saves a picture every few seconds
+## looking down at that spot, to see how enemies really look as they go by. Pictures go to the
+## --levelcheck folder; --watchfrom= sets the first second to capture.
+func watch(main: Node3D, dir: String, spec: String, from: float) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	for n in 10:
+		await get_tree().process_frame
+	var paths: Node = main.paths
+	var parts := spec.split(",")
+	var at := Vector2(float(parts[0]), float(parts[1]))
+	main.brush.hide_for_capture()
+	main.ui.visible = false
+	paths.route.visible = false
+	main.target = Vector3(at.x, main.terrain.height_at(at.x, at.y) + 2.0, at.y)
+	main.dist = float(parts[2]) if parts.size() > 2 else 60.0
+	main.pitch = -38.0
+	main.yaw = 0.5
+	main._update_camera()
+	paths.home_hp_max = 0
+	paths.start_battle()
+	paths.set_speed(paths.SPEEDS.size() - 1)
+	while paths.sim_time < from and paths.phase == paths.Phase.BATTLE:
+		await get_tree().process_frame
+	paths.set_speed(0)
+	for shot in 8:
+		var next: float = paths.sim_time + 3.0
+		while paths.sim_time < next and paths.phase == paths.Phase.BATTLE:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s/watch_%d.png" % [dir, shot])
+	get_tree().quit()
 
 
 ## Runs every wave with no towers and a home that cannot fall, so each unit's real path gets walked.

@@ -42,6 +42,11 @@ func no_build_zones() -> Array[Vector3]:
 	return []
 
 
+## Rectangles the player cannot sculpt or build in: {"rect": Rect2 in x, z, "reason": text shown when building there}.
+func no_build_areas() -> Array[Dictionary]:
+	return []
+
+
 ## Circles of loose boulders, each as x, z, radius.
 func rock_patches() -> Array[Vector3]:
 	return []

@@ -112,7 +112,8 @@ func setup(data, brush_node: Node, level_config: Dictionary, enemy_config: Dicti
 		push_error("PathCore is missing: build native/build.cmd, then run the project's import once.")
 		set_process(false)
 		return
-	core.configure(routing["min_gap_depth"], routing["max_span"], routing["tunnel_speed"])
+	# A drained riverbed is mud only on levels that ask for it, so older levels keep their routes.
+	core.configure(routing["min_gap_depth"], routing["max_span"], routing["tunnel_speed"], float(level["map"].get("mud_speed", 1.0)))
 	# Levels floating above a sea of clouds: ground sunk below this is open sky.
 	core.set_void_level(float(level["map"].get("void_level", -1000.0)))
 	var index := 0
@@ -140,11 +141,17 @@ func setup(data, brush_node: Node, level_config: Dictionary, enemy_config: Dicti
 	replan()
 
 
+## How each type crosses water, in the numbering native/path_core.h uses.
+const WATER_STYLES := {"boat": 0, "swim": 1, "dive": 2}
+
+
+## The numbers native/binding.cpp reads in set_type, in its order. Always 15 of them.
 static func _type_numbers(spec: Dictionary) -> PackedFloat32Array:
 	var color := Color(String(spec["color"])).srgb_to_linear()
 	return PackedFloat32Array([
 		spec["walk_speed"], spec["uphill_penalty"], spec["climb_speed"], spec["climb_slope"], spec["boat_speed"], spec["embark_time"],
 		spec["bridge_time"], spec["crew"], spec["hp"], spec["reward"], color.r, color.g, color.b, spec["scale"],
+		WATER_STYLES.get(String(spec.get("water", "boat")), 0),
 	])
 
 
@@ -290,7 +297,7 @@ func toggle_battle_pause() -> void:
 func replan() -> void:
 	var begin := Time.get_ticks_usec()
 	_choose_wave_types()
-	core.set_terrain(terrain.heights, terrain.water_mask, terrain.RES, terrain.SIZE, terrain.WATER_LEVEL)
+	core.set_terrain(terrain.heights, terrain.route_water_mask(), terrain.RES, terrain.SIZE, terrain.WATER_LEVEL)
 	core.solve(home.x, home.y, goal_radius)
 	last_solve_ms = float(Time.get_ticks_usec() - begin) / 1000.0
 	var old_plans := gate_plans
@@ -342,7 +349,7 @@ func _queue_options(type: int) -> void:
 	option_jobs = []
 	for n in gates.size():
 		option_results.append({})
-	for entry: Array in [["绕路", 0], ["爬坡", ALLOW_CLIMB], ["搭桥", ALLOW_BRIDGE], ["划船", ALLOW_BOAT]]:
+	for entry: Array in [["绕路", 0], ["爬坡", ALLOW_CLIMB], ["搭桥", ALLOW_BRIDGE], ["渡水", ALLOW_BOAT]]:
 		option_jobs.append(_run_mask_option.bind(type, entry[0], entry[1]))
 	for choice: Dictionary in route_choices:
 		option_jobs.append(_run_via_option.bind(type, choice["label"], float(choice["x"]), float(choice["z"])))
@@ -372,7 +379,7 @@ func _publish_options() -> void:
 			if time < 0.0 or label == current or time < best + 0.75:
 				continue
 			# A mode that does not beat plain walking is not really a separate choice.
-			if label in ["爬坡", "搭桥", "划船"] and walk_only >= 0.0 and time >= walk_only - 0.5:
+			if label in ["爬坡", "搭桥", "渡水"] and walk_only >= 0.0 and time >= walk_only - 0.5:
 				continue
 			list.append({"label": label, "time": time})
 		list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["time"] < b["time"])
@@ -673,7 +680,7 @@ func _plan_text() -> String:
 	if plan["climb"] > 0.0:
 		parts.append("爬坡 %d 米" % int(plan["climb"]))
 	if plan["boat"] > 0.0:
-		parts.append("划船 %d 米" % int(plan["boat"]))
+		parts.append("渡水 %d 米" % int(plan["boat"]))
 	if plan["bridges"] > 0:
 		parts.append("搭桥 %d 座（%d 米）" % [plan["bridges"], int(plan["span"])])
 	if plan["built"] > 0:

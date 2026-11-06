@@ -1,0 +1,84 @@
+{
+	"name": "第六关：横江渡口",
+	"card": "一条大河从北边峡谷流出，把敌人所在的西岸和家园所在的东岸隔开。敌人要横渡过来：有人游泳，有人划船，还有潜在水下的潜水兵。",
+	"goal_hint": "潜水兵潜在水下时塔打不到，守在东岸只能等他们上岸\n整条河都从北边的窄峡谷流出来，想想办法让它断流",
+	"difficulty": 3,
+	"start_gold": 11500,
+	"home_hp": 12,
+	"map": {
+		"generator": "composed",
+		"seed": 611,
+		"flowing_water": true,
+		"mud_speed": 0.4,
+		"ground": 4,
+		"noise": 1.2,
+		"rim": { "height": 34, "width": 30, "openings": [[-160, -62, 24], [-160, 66, 24]] },
+		"home": { "x": 104, "z": 0, "goal_radius": 26, "height": 9.4 },
+		"features": [
+			{ "type": "mesa", "x": 120, "z": 0, "rx": 92, "rz": 230, "edge": 3, "rough": 2, "top": 9, "bumps": 0.6 },
+			{ "type": "ridge", "points": [[-170, 2], [-100, -3], [-50, 2], [-20, 0]], "width": 8, "edge": 7, "rough": 2, "top": 16, "bumps": 0.8 },
+			{ "type": "ridge", "points": [[-16, -170], [-15, -140], [-12, -116]], "width": 18, "edge": 8, "rough": 2, "top": 34, "bumps": 1.0 },
+			{ "type": "ridge", "points": [[32, -170], [31, -140], [28, -116]], "width": 18, "edge": 8, "rough": 2, "top": 34, "bumps": 1.0 },
+			{ "type": "trench", "water": true, "points": [[8, -162], [8, -150], [8, -110]], "width": 22, "edge": 3, "rough": 1.5, "bottom": -2 },
+			{ "type": "trench", "points": [[8, -112], [4, -60], [2, 0], [6, 60], [12, 120], [14, 240]], "width": 44, "edge": 2.5, "rough": 1.5, "bottom": -2 },
+			{ "type": "hill", "x": -110, "z": -110, "radius": 30, "height": 14 },
+			{ "type": "hill", "x": -100, "z": 120, "radius": 26, "height": 11 },
+			{ "type": "hill", "x": 92, "z": -96, "radius": 30, "height": 12 },
+			{ "type": "hill", "x": 96, "z": 104, "radius": 26, "height": 9 }
+		],
+		"roads": [
+			{ "points": [[-160, -62], [-110, -50], [-60, -40], [-26, -30]] },
+			{ "points": [[-160, 66], [-110, 56], [-60, 42], [-24, 34]] },
+			{ "points": [[40, 0], [70, 2], [90, 2]] }
+		],
+		"rocks": [[-110, -110, 22], [92, -96, 20], [8, -140, 16]],
+		"keep_clear": [[8, -132, 18]],
+		"route_choices": [
+			{ "label": "北边渡河", "x": 4, "z": -35 },
+			{ "label": "南边渡河", "x": 4, "z": 35 }
+		],
+		"route_labels": [
+			{ "label": "北边渡河", "x": 4, "z": -40, "radius": 38 },
+			{ "label": "南边渡河", "x": 4, "z": 40, "radius": 38 },
+			{ "label": "绕峡谷", "x": 8, "z": -130, "radius": 30 }
+		],
+		"no_build_areas": [{ "rect": [-160, -160, -30, 160], "reason": "对岸是敌人的地盘，不能建造" }],
+		"no_build_zones": [
+			{ "x": -150, "z": -62, "radius": 24 },
+			{ "x": -150, "z": 66, "radius": 24 }
+		]
+	},
+	"gates": [
+		{ "id": "north", "name": "北路", "x": -150, "z": -62 },
+		{ "id": "south", "name": "南路", "x": -150, "z": 66 }
+	],
+	"waves": [
+		{ "groups": [
+			{ "type": "walker", "gate": "north", "count": 14, "interval": 1.2, "delay": 0 },
+			{ "type": "walker", "gate": "south", "count": 14, "interval": 1.2, "delay": 0 },
+			{ "type": "diver", "gate": "north", "count": 6, "interval": 1.5, "delay": 6 },
+			{ "type": "diver", "gate": "south", "count": 6, "interval": 1.5, "delay": 6 }
+		] },
+		{ "groups": [
+			{ "type": "walker", "gate": "north", "count": 14, "interval": 1.1, "delay": 0 },
+			{ "type": "walker", "gate": "south", "count": 14, "interval": 1.1, "delay": 0 },
+			{ "type": "diver", "gate": "north", "count": 14, "interval": 1.0, "delay": 4 },
+			{ "type": "diver", "gate": "south", "count": 14, "interval": 1.0, "delay": 4 },
+			{ "type": "boatman", "gate": "north", "count": 10, "interval": 1.2, "delay": 8 }
+		] },
+		{ "groups": [
+			{ "type": "walker", "gate": "north", "count": 16, "interval": 1.0, "delay": 0 },
+			{ "type": "walker", "gate": "south", "count": 16, "interval": 1.0, "delay": 0 },
+			{ "type": "diver", "gate": "north", "count": 18, "interval": 0.9, "delay": 4 },
+			{ "type": "diver", "gate": "south", "count": 18, "interval": 0.9, "delay": 4 },
+			{ "type": "boatman", "gate": "south", "count": 12, "interval": 1.0, "delay": 6 }
+		] }
+	],
+	"views": {
+		"strategy": { "target": [0, 6, 0], "yaw": 0.0, "pitch": -58, "dist": 470, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"gorge": { "target": [6, 6, -110], "yaw": 0.0, "pitch": -40, "dist": 150, "fov": 38, "far": 260, "near": 0, "amount": 0.04 },
+		"crossing": { "target": [0, 4, 10], "yaw": 0.0, "pitch": -40, "dist": 200, "fov": 38, "far": 320, "near": 0, "amount": 0.04 },
+		"low": { "target": [20, 8, 10], "yaw": -1.2, "pitch": -12, "dist": 150, "fov": 42, "far": 260, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "gorge", "crossing", "low"]
+}

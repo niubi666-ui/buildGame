@@ -31,6 +31,7 @@ func _process(_delta: float) -> bool:
 
 func _run() -> void:
 	GameConfig.chosen_level = "level_01"
+	GameConfig.saving = false
 	change_scene_to_file("res://main.tscn")
 	await scene_changed
 	world = current_scene

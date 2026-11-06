@@ -4,6 +4,7 @@ extends Node
 ## New tower types only need another entry in data/towers.json, plus their own range shape later on.
 
 const Props = preload("res://scripts/props.gd")
+const TowerModels = preload("res://scripts/tower_models.gd")
 const Flora = preload("res://scripts/flora.gd")
 
 ## Sent when a different tower is selected, or none.
@@ -435,7 +436,8 @@ func check_spot(x: float, z: float, type := "") -> Dictionary:
 		if terrain.heights[index] < terrain.void_level + 1.0:
 			return {"ok": false, "reason": "这里是云海，不能建造"}
 		if terrain.base_edit_mask[index] <= 0.0:
-			return {"ok": false, "reason": "这里不能建造"}
+			var why: String = terrain.no_build_reason(x + s.x, z + s.z)
+			return {"ok": false, "reason": why if why != "" else "这里不能建造"}
 	var normal: Vector3 = plane["normal"]
 	var center: Vector3 = plane["center"]
 	var base: Vector3 = center + normal * PLINTH_HEIGHT
@@ -578,7 +580,7 @@ func _create_tower(check: Dictionary, yaw: float, pitch: float) -> Dictionary:
 			"color": Color(v, v, v * 0.96),
 		})
 	Props.add_instances(holder, rock, stone, stones)
-	var turret: Dictionary = Props.build_tower_model(holder, String(spec.get("model", "cannon")), _pivot(spec), rng, rock)
+	var turret: Dictionary = TowerModels.build(holder, String(spec.get("model", "cannon")))
 	_keep_off_brush_ring(holder)
 	var apex: Vector3 = check["apex"]
 	var aim := aim_vector(yaw, pitch)
@@ -702,7 +704,7 @@ func _apply_spec(tower: Dictionary) -> void:
 	tower["spec"] = spec_for(tower["path"], tower["stars"], tower["type"])
 	var stats := stats_for(tower["spec"])
 	core.set_tower_stats(tower["id"], stats, stats.size())
-	Props.dress_turret(tower["turret"], tower["path"], tower["stars"])
+	TowerModels.dress(tower["turret"], tower["path"], tower["stars"])
 	_keep_off_brush_ring(tower["node"])
 
 
@@ -942,6 +944,8 @@ func _discard_tower(tower: Dictionary) -> void:
 func _process(delta: float) -> void:
 	if not paths.battle_paused:
 		_update_kicks(delta * paths.speed)
+	for tower: Dictionary in towers:
+		TowerModels.spin(tower["turret"], delta)
 	match mode:
 		Mode.PLACING:
 			_update_placing()

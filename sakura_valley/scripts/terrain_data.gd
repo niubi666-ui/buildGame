@@ -175,6 +175,16 @@ func _flood_water(seeds: PackedInt32Array) -> void:
 				stack.append(n)
 
 
+## The water mask as the route planner reads it: 1 for water, and 2 for mud, where water
+## stood at the start but has drained away while the ground is still below the water line.
+func route_water_mask() -> PackedByteArray:
+	var mask := water_mask.duplicate()
+	for c in start_water_cells:
+		if mask[c] == 0 and heights[c] < WATER_LEVEL:
+			mask[c] = 2
+	return mask
+
+
 ## The original lake is the only water source, so a basin cut off from it dries up.
 func refresh_water() -> void:
 	var before := water_mask.duplicate()
@@ -221,6 +231,7 @@ func _build_edit_mask() -> void:
 	var half := SIZE * 0.5
 	var home := home_center()
 	var zones: Array[Vector3] = shape.no_build_zones()
+	var areas: Array[Dictionary] = shape.no_build_areas()
 	for j in RES:
 		var z := -half + float(j) * step
 		for i in RES:
@@ -230,8 +241,25 @@ func _build_edit_mask() -> void:
 			mask = minf(mask, smoothstep(38.0, 50.0, Vector2(x - home.x, (z - home.y) * 0.9).length()))
 			for zone in zones:
 				mask = minf(mask, smoothstep(zone.z, zone.z + 8.0, Vector2(x - zone.x, z - zone.y).length()))
+			for area: Dictionary in areas:
+				mask = minf(mask, smoothstep(0.0, 8.0, _outside(area["rect"], Vector2(x, z))))
 			edit_mask[j * RES + i] = mask
 	base_edit_mask = edit_mask.duplicate()
+
+
+## How far a point lies outside a rectangle, 0 inside it.
+static func _outside(rect: Rect2, p: Vector2) -> float:
+	var dx := maxf(maxf(rect.position.x - p.x, p.x - rect.end.x), 0.0)
+	var dz := maxf(maxf(rect.position.y - p.y, p.y - rect.end.y), 0.0)
+	return Vector2(dx, dz).length()
+
+
+## Why nothing can be built at a point inside a no-build rectangle, or "" if no rectangle explains it.
+func no_build_reason(x: float, z: float) -> String:
+	for area: Dictionary in shape.no_build_areas():
+		if _outside(area["rect"], Vector2(x, z)) < 8.0:
+			return area["reason"]
+	return ""
 
 
 ## Fits a flat plane to the ground around a spot: height = c + a * dx + b * dz.

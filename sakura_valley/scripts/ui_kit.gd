@@ -66,6 +66,8 @@ const LINE_ICONS := {
 const COLOR_ICONS := {
 	"coin": "<circle cx='12' cy='12' r='10' fill='#F0CB85' stroke='#C8995A' stroke-width='1.600'/><circle cx='12' cy='12' r='6.300' fill='#F6DCA5' stroke='#D3A966' stroke-width='1.300'/>",
 	"sakura": "<g fill='#F1B3C2'><ellipse cx='12' cy='6.200' rx='3.500' ry='4.800'/><ellipse cx='12' cy='6.200' rx='3.500' ry='4.800' transform='rotate(72 12 12)'/><ellipse cx='12' cy='6.200' rx='3.500' ry='4.800' transform='rotate(144 12 12)'/><ellipse cx='12' cy='6.200' rx='3.500' ry='4.800' transform='rotate(216 12 12)'/><ellipse cx='12' cy='6.200' rx='3.500' ry='4.800' transform='rotate(288 12 12)'/></g><circle cx='12' cy='12' r='2.300' fill='#F6DE9C'/>",
+	"star": "<path d='M12 2.300l2.900 6.300 6.800.700-5.100 4.600 1.500 6.800L12 17.200l-6.100 3.500 1.500-6.800-5.100-4.600 6.800-.700z' fill='#F2C66B' stroke='#C8995A' stroke-width='1.300' stroke-linejoin='round'/>",
+	"star_empty": "<path d='M12 2.300l2.900 6.300 6.800.700-5.100 4.600 1.500 6.800L12 17.200l-6.100 3.500 1.500-6.800-5.100-4.600 6.800-.700z' fill='#EFE4D6' stroke='#D8C7B3' stroke-width='1.300' stroke-linejoin='round'/>",
 	"grabber": "<circle cx='12' cy='12' r='9' fill='#FFFFFF' stroke='#C76F87' stroke-width='3'/>",
 	"grabber_on": "<circle cx='12' cy='12' r='9.500' fill='#FAE6E9' stroke='#A8566C' stroke-width='3'/>",
 }

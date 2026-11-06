@@ -1,0 +1,10 @@
+# Godot editor and import cache, rebuilt when the project is first opened.
+.godot/
+
+# Native build intermediates. bin/pathcore.dll is shipped with the repository and stays tracked.
+sakura_valley/native/build/
+*.pdb
+*.ilk
+
+# Blender backups
+*.blend1

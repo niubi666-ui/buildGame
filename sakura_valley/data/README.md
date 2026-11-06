@@ -8,10 +8,10 @@
 | `towers.json` | 防御塔数值和摆放规则 |
 | `effects.json` | 塔的攻击特效：开火、拖尾、命中、着火、减速、敌人倒下、升级、后坐力 |
 | `terrain_tools.json` | 改地形的价格、笔刷速度、预设形状、隧道规则、手感反馈 |
-| `levels/index.json` | 选关界面的关卡顺序，以及“试验场”按钮打开哪一关 |
+| `levels/index.json` | 选关界面的关卡顺序，“试验场”按钮打开哪一关，以及两星的血量分界 `two_star_health`（默认 0.5：剩一半及以上两星） |
 | `levels/level_01.json` | 第一关：起始金币、家园血量、地图形状、入口、每一波敌人、镜头 |
-| `levels/level_02.json` ~ `level_05.json` | 第二到第五关：云海裂谷、浮空群岛、樱川三角洲、火山环城 |
-| `levels/level_0X_balance.json` | 第二到第五关各自的平衡测试打法（第一关的打法写在脚本里） |
+| `levels/level_02.json` ~ `level_06.json` | 第二到第六关：云海裂谷、浮空群岛、樱川三角洲、火山环城、横江渡口 |
+| `levels/level_0X_balance.json` | 第二到第六关各自的平衡测试打法（第一关的打法写在脚本里） |
 | `levels/sandbox.json` | 试验场：旧的樱花山谷，用于自动测试 |
 
 ## 常用的字段
@@ -22,7 +22,9 @@
 - `uphill_penalty`：上坡减速程度，越大越怕上坡。
 - `climb_slope`：坡度超过它就算“爬坡”（0.75 约等于 37°）。
 - `climb_speed`：爬坡速度。
-- `boat_speed`、`embark_time`：划船速度和下水要花的秒数。
+- `boat_speed`、`embark_time`：在水里的速度和下水要花的秒数（划船和游泳都用这两个）。
+- `water`：怎么过水。`boat` 划船（船队）；`swim` 游泳，只露出上半身；`dive` 潜水，从一个水格游到下一个水格时整个人在水下，塔打不到，水面上只看得到一个暗影，下水和上岸的那一步露出水面。不填就是 `boat`。
+- 从水里上岸时，岸比水面陡（超过 `climb_slope`）就得按爬坡算，不能一步跨上去。
 - `bridge_time`：整支队伍每搭 1 米桥要花的秒数。
 - `crew`：多少人算一支完整的搭桥队伍。
 
@@ -64,10 +66,22 @@
 - `start_gold`：起始金币。
 - `home_hp`：家园血量，每个敌人抵达扣 1。填 0 表示没有胜负。
 - `waves`：每一波由若干 `groups` 组成：`type` 兵种，`gate` 从哪个入口来，`count` 人数，`interval` 出发间隔，`delay` 开战后延迟几秒。
-- `map.no_build_zones`：不能改地形和建塔的区域。
+- `map.no_build_zones`：不能改地形和建塔的圆形区域。
+- `map.no_build_areas`：不能改地形和建塔的长方形区域，每项 `{ "rect": [x0, z0, x1, z1], "reason": "玩家想建时看到的提示" }`。第六关用它把整个西岸设成敌岸。
 - `map.route_choices`：路线对比里要算的走法，比如“走西路”会算出必须经过那个点要花多久。
 - `views`：这一关的镜头位置，第一个 `view_order` 是开局镜头。
 - `card`：选关卡片上的介绍。`difficulty`：卡片上的难度花瓣数（0–4）。`name` 里“：”前面的部分显示成小标签，后面是卡片标题。
+
+## 塔的模型和颜色（`tower_models.json`）
+
+- `models`：每种塔（和 `towers.json` 里的 `model` 对应）的模型文件 `file`、节点名前缀 `prefix`，以及 `rest_pitch`：没瞄准时炮口俯仰多少弧度（投石臂靠它放平）。
+- `vane_turns_per_second`：风车每秒转几圈。
+- `materials`：模型里每种材质的颜色和粗糙度（键是 Blender 材质名去掉 `WT_`）。`glow` 是发光亮度，用在炉火和星石上。
+- `cloth`：帆布的底色。
+- `accents`：强调色色板。帆布条纹、旗子、彩绳都用强调色，`base` 是没升级时的颜色。
+- `upgrades`：每个升级的样子。`accent` 是 `accents` 里的颜色名，走得越深的升级说了算；`pattern` 只写在一级升级上，定这条线的条纹：`bands` 横条（默认）、`vertical` 竖条、`dipped` 染色下摆加一道横条。
+
+改这里不用重新导出模型。哪个升级显示哪些部件写在模型里，要改它得改 `art/models/towers/build_windmill_towers.py` 再导出，见 `HANDOFF.md` 的“塔模型”。
 
 ## 攻击特效（`effects.json`）
 
@@ -96,6 +110,7 @@
 - `void_level`：低于这个高度的地面算“悬空”，谁都走不过去也爬不过去，只能搭桥，也不能建塔。玩家把地挖到这个高度以下，就等于把地挖穿了。不填就没有悬空。
 - `void_floor`：悬空处的地面高度（藏在云下面）。`cloud_height`：云海的高度，填了才会画云海。
 - `flowing_water`：填 `true` 时，水只从源头（`water_seeds` 和带水的沟）流进来，在下游筑坝，坝下的水会全部干掉。不填时，所有一开始就有水的地方都会一直有水。
+- `mud_speed`：河水被抽干后，原来的河床变成烂泥，在上面走和爬的速度乘以这个数（比如 0.4）。不填就是 1，没有烂泥。只有第六关打开了；第四关打开后，敌人会改成在干河道上搭桥，原来设计的解法就不成立了。
 - `rim`：地图四周的一圈山，`height` 高度，`width` 宽度，`openings` 是缺口 `[x, z, 半径]`（入口和河流要留缺口）。
 - `home`：家园位置 `x`、`z`，到达半径 `goal_radius`，家园周围压平的高度 `height`。
 - `roads`：画在地上的土路 `points`，只是装饰，敌人照样走最快的路。路边不长树，每隔 70 米放一盏灯笼。
@@ -125,16 +140,20 @@
 Godot_v4.7.2-stable_win64_console.exe --path . -- --level=level_02 --levelcheck=D:/Temp/lv/l2
 ```
 
+再加 `--trace` 会把每个兵种的路线每隔约 8 米打印一个点（x, z, 高度, 走法），用来看敌人在哪里下水、在哪里爬坡。`--watch=x,z,镜头距离` 会不放塔打第一波，从 `--watchfrom=` 指定的秒数开始，每 3 秒对着那个点截一张图，存到 `--levelcheck=` 的目录，用来看敌人走过时的样子。
+
 ## 调完数值后检查平衡
 
-下面的命令会用八种打法把第一关自动打一遍，不用等待也不开画面，结果写在控制台里，`BALANCE ok` 表示结局和设计一致。
+下面的命令会用 23 种打法把第一关自动打一遍，不用等待也不开画面，结果写在控制台里，`BALANCE ok` 表示结局和设计一致。
 
 ```
 Godot_v4.7.2-stable_win64_console.exe --headless --path . -- --balance=all
 ```
 
-打法写在 `scripts/balance_test.gd` 的 `STRATEGIES` 里。第一关的设计是：堵一条路或挖隧道能赢，不改地形、封死两条路、把塔全放一边都会输。
+打法写在 `scripts/balance_test.gd` 的 `STRATEGIES` 里。第一关的设计是：堵一条路或挖隧道能赢；不动脑子的随手摆放（`n_naive_*`）、封死两条路、把塔全放一边都会输；不改地形、但按覆盖最多来分开放塔（`a_`、`h_`、`j_`）输赢都可以。
 
-其他关加 `--level=level_02` 这样的参数，打法读 `data/levels/level_02_balance.json`。除了第一关的字段，地形步骤还可以写 `{ "dig": [x, z, 半径, 挖到的高度] }` 和 `{ "raise": [x, z, 半径, 堆到的高度] }`，按玩家的土方价格扣钱。`goal` 是期望结局：`win`、`lose` 或 `any`（不检查）。`naive: true` 表示不动脑子的摆法：每座塔放在离区域中心最近、能打到路线的地方。
+其他关加 `--level=level_02` 这样的参数，打法读 `data/levels/level_02_balance.json`。除了第一关的字段，地形步骤还可以写 `{ "dig": [x, z, 半径, 挖到的高度] }` 和 `{ "raise": [x, z, 半径, 堆到的高度] }`，按玩家的土方价格扣钱。`goal` 是期望结局：`win`、`lose` 或 `any`（不检查）。`stars` 是期望星数，写一个数或 `[最少, 最多]`，有它时不看 `goal`。`naive: true` 表示不动脑子的摆法：每座塔放在离区域中心最近、能打到路线的地方。`upgrade_first: true` 表示第一波就按 `plan` 升级，先把每座塔升完再建下一座（少建塔、塔更强）；不写时第一波只建塔，升级用之后的赏金。
+
+结果里每波会写哪些兵种到了家，比如 `arrived 5 (walker 4, diver 1)`。加 `--gold=12000` 可以不改关卡文件、换一个起始金币来跑。
 
 JSON 不支持注释，改的时候注意逗号和引号。如果写错了，游戏启动时会在控制台报告出错的文件。

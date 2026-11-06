@@ -13,6 +13,8 @@ extends Node3D
 ## Play out the strategies against the level's numbers, with no waiting: -- --balance=name
 ## How far off the middle of the west road a ridge can be dropped and still close it: -- --ridgesweep
 
+## Launch options that start a test or a check rather than a game for the player.
+const TEST_MODES := ["balance", "leveltest", "uitest", "uilayout", "towertest", "fxdemo", "fxtest", "levelcheck", "pathtest", "brushtest", "perf", "shots", "ridgesweep"]
 const TerrainData = preload("res://scripts/terrain_data.gd")
 const Flora = preload("res://scripts/flora.gd")
 const Props = preload("res://scripts/props.gd")
@@ -80,6 +82,10 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts := arg.trim_prefix("--").split("=", true, 1)
 		args[parts[0]] = parts[1] if parts.size() > 1 else ""
+	# Automated runs play real battles, so they must not touch the player's saved stars.
+	for mode: String in TEST_MODES:
+		if args.has(mode):
+			GameConfig.saving = false
 	level_id = args.get("level", GameConfig.chosen_level if GameConfig.chosen_level != "" else DEFAULT_LEVEL)
 	var level: Dictionary = GameConfig.level(level_id)
 	var tools_config: Dictionary = GameConfig.tools()
@@ -173,6 +179,8 @@ func _ready() -> void:
 		add_child(check)
 		if args.has("play"):
 			check.play(self)
+		elif args.has("watch"):
+			check.watch(self, args["levelcheck"], args["watch"], float(args.get("watchfrom", "30")))
 		elif args.has("dam"):
 			check.dam(self, args["dam"])
 		elif args.has("uishot"):

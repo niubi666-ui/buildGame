@@ -1,0 +1,53 @@
+{
+	"models": {
+		"cannon": { "file": "res://assets/models/towers/cannon.glb", "prefix": "Cannon" },
+		"catapult": { "file": "res://assets/models/towers/catapult.glb", "prefix": "Catapult", "rest_pitch": 0.42 },
+		"sniper": { "file": "res://assets/models/towers/sniper.glb", "prefix": "Sniper" }
+	},
+	"vane_turns_per_second": 0.12,
+	"materials": {
+		"ash": { "color": "#b58f63", "roughness": 0.8 },
+		"ash_dark": { "color": "#735236", "roughness": 0.85 },
+		"whitewash": { "color": "#e0dbcf", "roughness": 0.95 },
+		"iron": { "color": "#3d3d42", "roughness": 0.5 },
+		"rope": { "color": "#b3996e", "roughness": 0.95 },
+		"stone": { "color": "#9e998f", "roughness": 0.9 },
+		"brass": { "color": "#cca352", "roughness": 0.4 },
+		"bronze": { "color": "#9e7342", "roughness": 0.45 },
+		"clay": { "color": "#b36e4a", "roughness": 0.9 },
+		"shell": { "color": "#cc7840", "roughness": 0.6 },
+		"soot": { "color": "#1a1717", "roughness": 0.9 },
+		"ember": { "color": "#ff852e", "roughness": 0.6, "glow": 1.6 },
+		"starstone": { "color": "#dbe6fa", "roughness": 0.3, "glow": 0.5 }
+	},
+	"cloth": "#e3d9bf",
+	"accents": {
+		"base": "#80abd9",
+		"honey": "#e0b861",
+		"brick": "#c25740",
+		"teal": "#4d9985",
+		"charcoal": "#3d3d45",
+		"plum": "#855c80",
+		"indigo": "#4d57a8"
+	},
+	"upgrades": {
+		"scatter": { "accent": "honey", "pattern": "vertical" },
+		"fan": { "accent": "honey" },
+		"blaze": { "accent": "brick" },
+		"heavy": { "accent": "charcoal", "pattern": "dipped" },
+		"lofty": { "accent": "teal" },
+		"quake": { "accent": "plum" },
+		"boulder": { "accent": "charcoal", "pattern": "vertical" },
+		"meteor": { "accent": "indigo" },
+		"rubble": { "accent": "plum" },
+		"volley": { "accent": "honey", "pattern": "dipped" },
+		"firepot": { "accent": "brick" },
+		"farthrow": { "accent": "teal" },
+		"quick": { "accent": "honey", "pattern": "vertical" },
+		"twin": { "accent": "honey" },
+		"eagle": { "accent": "teal" },
+		"heavyshot": { "accent": "charcoal", "pattern": "dipped" },
+		"pin": { "accent": "plum" },
+		"burst": { "accent": "brick" }
+	}
+}

@@ -56,14 +56,21 @@ void World::set_terrain(const float *heights, const uint8_t *water, int src_res,
 	const int total = res_ * res_;
 	height_.resize(total);
 	wet_.resize(total);
+	mud_.resize(total);
 	for (int j = 0; j < res_; j++) {
 		for (int i = 0; i < res_; i++) {
 			const int source = (j * 2) * src_res + i * 2;
 			height_[j * res_ + i] = heights[source];
-			wet_[j * res_ + i] = water[source] != 0 ? 1 : 0;
+			wet_[j * res_ + i] = water[source] == 1 ? 1 : 0;
+			mud_[j * res_ + i] = water[source] == 2 ? 1 : 0;
 		}
 	}
 	find_bridges();
+}
+
+bool World::submerged(const Unit &unit) const {
+	return types_[unit.type].water_style == WATER_DIVE && unit.mode == MODE_BOAT && !unit.waiting && unit.to >= 0 &&
+			wet_[unit.cell] != 0 && wet_[unit.to] != 0;
 }
 
 int World::cell_at(float x, float z) const {
@@ -84,6 +91,16 @@ float World::edge_cost(const UnitType &type, int a, int b, float flat_distance, 
 		return wet_[a] ? sail : sail + type.embark_time;
 	}
 	if (wet_[a]) {
+		if (height_[b] < settings.void_level) {
+			mode = MODE_WALK;
+			return INFINITE_COST;
+		}
+		// Coming ashore. A bank too steep to walk up out of the water has to be climbed.
+		const float rise = height_[b] - water_level_;
+		if (rise / flat_distance > type.climb_slope) {
+			mode = MODE_CLIMB;
+			return std::sqrt(flat_distance * flat_distance + rise * rise) / type.climb_speed + type.embark_time * 0.25f;
+		}
 		mode = MODE_BOAT;
 		return flat_distance / type.walk_speed + type.embark_time * 0.25f;
 	}
@@ -104,6 +121,9 @@ float World::edge_cost(const UnitType &type, int a, int b, float flat_distance, 
 	} else {
 		mode = MODE_WALK;
 		speed = slope > 0.0f ? type.walk_speed / (1.0f + type.uphill_penalty * slope) : type.walk_speed / (1.0f - 0.6f * slope);
+	}
+	if (mud_[a] || mud_[b]) {
+		speed *= settings.mud_speed;
 	}
 	return length / speed;
 }
@@ -400,6 +420,7 @@ void World::begin_wave() {
 	deaths_.clear();
 	fires_.clear();
 	arrived_ = 0;
+	arrived_types_.assign(types_.size(), 0.0f);
 	kills_ = 0;
 	earned_ = 0.0f;
 	seed_ = 12345u;
@@ -448,6 +469,9 @@ void World::pick_edge(Unit &unit) {
 		unit.done = true;
 		unit.to = -1;
 		arrived_++;
+		if (unit.type >= 0 && static_cast<size_t>(unit.type) < arrived_types_.size()) {
+			arrived_types_[unit.type] += 1.0f;
+		}
 		return;
 	}
 	const Field &field = fields_[unit.type];
@@ -751,6 +775,7 @@ void World::route_stops(std::vector<int> &cells) const {
 	if (field.cost.empty()) {
 		return;
 	}
+	const bool dives = types_[display_type()].water_style == WATER_DIVE;
 	std::vector<uint8_t> seen(static_cast<size_t>(res_) * res_, 0);
 	const int limit = res_ * res_;
 	for (size_t g = 0; g + 1 < gates_.size(); g += 2) {
@@ -760,8 +785,10 @@ void World::route_stops(std::vector<int> &cells) const {
 				break;
 			}
 			seen[cell] = 1;
-			// Nobody can be shot inside a tunnel, so that stretch is not route a tower can cover.
-			if (field.mode[cell] != MODE_TUNNEL) {
+			// Nobody can be shot inside a tunnel, or a diver under water, so those stretches are not route a tower can cover.
+			const int next = field.next[cell];
+			const bool under = dives && field.mode[cell] == MODE_BOAT && wet_[cell] != 0 && next >= 0 && wet_[next] != 0;
+			if (field.mode[cell] != MODE_TUNNEL && !under) {
 				cells.push_back(cell);
 			}
 			cell = field.next[cell];
@@ -1286,32 +1313,45 @@ void World::write_buffers() {
 	}
 	for (size_t n = 0; n < units_.size(); n++) {
 		const Unit &unit = units_[n];
-		if (unit.done || unit.delay > 0.0f || is_hidden(unit)) {
+		if (unit.done || unit.delay > 0.0f || in_tunnel(unit)) {
 			continue;
 		}
 		const UnitType &type = types_[unit.type];
 		float px, y, pz, dx, dz;
 		bool on_water;
 		unit_position(unit, px, y, pz, dx, dz, on_water);
+		// Only boats float the figure up into a hull. Swimmers sink to their shoulders, and a diver
+		// under water shows only as a dark ripple, the figure flattened onto the surface.
+		float lift = on_water ? 0.25f : 0.0f;
+		const bool rowing = on_water && type.water_style == WATER_BOAT;
+		if (on_water && type.water_style == WATER_SWIM) {
+			lift = -UNIT_HALF_HEIGHT * type.scale * 0.8f;
+		}
+		const bool under = submerged(unit);
+		const float wide = under ? type.scale * 1.8f : type.scale;
+		const float tall = under ? type.scale * 0.05f : type.scale;
+		if (under) {
+			lift = -UNIT_HALF_HEIGHT * type.scale + 0.22f;
+		}
 		float *figure = &figure_buffer_[n * 20];
-		figure[0] = dz * type.scale;
-		figure[2] = dx * type.scale;
+		figure[0] = dz * wide;
+		figure[2] = dx * wide;
 		figure[3] = px;
-		figure[5] = type.scale;
-		figure[7] = y + UNIT_HALF_HEIGHT * type.scale + (on_water ? 0.25f : 0.0f);
-		figure[8] = -dx * type.scale;
-		figure[10] = dz * type.scale;
+		figure[5] = tall;
+		figure[7] = y + UNIT_HALF_HEIGHT * type.scale + lift;
+		figure[8] = -dx * wide;
+		figure[10] = dz * wide;
 		figure[11] = pz;
 		// Wounded enemies darken, and a hit flashes bright for an instant.
 		const float health = 0.35f + 0.65f * unit.hp / unit.max_hp;
-		const float shade = unit.flash > 0.0f ? 3.0f : health;
+		const float shade = unit.flash > 0.0f ? 3.0f : health * (under ? 0.45f : 1.0f);
 		// Slowed or stunned enemies take on a cool tint, so the effect can be seen from far away.
 		const float cool = unit.slow_left > 0.0f || unit.stun > 0.0f ? 1.0f : 0.0f;
 		figure[12] = type.r * shade * (1.0f - 0.35f * cool);
 		figure[13] = type.g * shade * (1.0f - 0.1f * cool);
 		figure[14] = type.b * shade * (1.0f + 0.5f * cool) + 0.12f * cool;
 		figure[15] = 1.0f;
-		if (on_water) {
+		if (rowing) {
 			float *boat = &boat_buffer_[n * 20];
 			boat[0] = dz;
 			boat[2] = dx;

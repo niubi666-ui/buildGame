@@ -63,7 +63,23 @@ void fragment() {
 	float undug = 1.0 - smoothstep(0.05, 0.4, dig);
 	float shore = (1.0 - smoothstep(0.25, 1.1 + grain * 0.8, above)) * undug;
 	color = mix(color, sand, shore);
-	color *= mix(1.0, mix(0.72, 1.0, smoothstep(-1.5, 0.15, above)), undug);
+
+	// The bed under the water: pale sand with dark pebbles, and mossy patches further down.
+	// The water shader tints it by depth, so the bed itself stays fairly bright.
+	float below = -above;
+	vec3 bed = srgb(vec3(0.76, 0.68, 0.52)) * mix(0.84, 1.06, fine);
+	float ripples = sin(dot(world_pos.xz, vec2(0.83, 0.56)) * 2.4 + grain * 6.0) * 0.5 + 0.5;
+	bed *= mix(0.94, 1.04, ripples * (1.0 - smoothstep(0.5, 3.0, below)));
+	float moss = smoothstep(0.5, 0.72, fbm(world_pos.xz * 0.16 + vec2(7.0, 3.0))) * smoothstep(0.6, 2.5, below);
+	bed = mix(bed, srgb(vec3(0.4, 0.46, 0.32)) * mix(0.8, 1.05, fine), moss * 0.85);
+	float pebble = smoothstep(0.66, 0.74, fbm(world_pos.xz * 1.7 + vec2(3.1, 8.4)));
+	// Pebbles show only in the shallows; deeper down they would read as dirt in the water.
+	pebble *= 1.0 - smoothstep(1.0, 2.5, below);
+	bed = mix(bed, srgb(vec3(0.46, 0.44, 0.39)) * mix(0.8, 1.08, grain), pebble * 0.6);
+	float submerged = smoothstep(-0.05, 0.45 + grain * 0.4, below) * undug;
+	color = mix(color, bed, submerged);
+	// Damp just above and below the waterline.
+	color *= mix(1.0, mix(0.82, 1.0, smoothstep(-0.6, 0.15, above)), undug * (1.0 - submerged * 0.7));
 
 	// Distant hills fade into the air.
 	float haze = smoothstep(190.0, 720.0, length(world_pos.xz));

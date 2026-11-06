@@ -53,6 +53,7 @@ var road_boxes: Array[Rect2] = []
 var seeds: Array[Vector2] = []
 var zones: Array[Vector3] = []
 var clear_zones: Array[Vector3] = []
+var areas: Array[Dictionary] = []
 var rocks: Array[Vector3] = []
 var labels: Array[Dictionary] = []
 
@@ -96,6 +97,10 @@ func setup(config: Dictionary) -> void:
 		seeds.append(Vector2(spot[0], spot[1]))
 	for zone: Dictionary in config.get("no_build_zones", []):
 		zones.append(Vector3(zone["x"], zone["z"], zone["radius"]))
+	for area: Dictionary in config.get("no_build_areas", []):
+		var corners: Array = area["rect"]
+		var rect := Rect2(Vector2(corners[0], corners[1]), Vector2.ZERO).expand(Vector2(corners[2], corners[3]))
+		areas.append({"rect": rect, "reason": String(area.get("reason", "这里不能建造"))})
 	clear_zones.assign(zones)
 	for zone: Array in config.get("keep_clear", []):
 		clear_zones.append(Vector3(zone[0], zone[1], zone[2]))
@@ -300,6 +305,10 @@ func keep_clear() -> Array[Vector3]:
 
 func no_build_zones() -> Array[Vector3]:
 	return zones
+
+
+func no_build_areas() -> Array[Dictionary]:
+	return areas
 
 
 func rock_patches() -> Array[Vector3]:

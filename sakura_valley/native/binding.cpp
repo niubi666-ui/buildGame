@@ -3,6 +3,7 @@
 #include "gdextension_interface.h"
 #include "path_core.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <new>
@@ -167,6 +168,7 @@ enum Method {
 	M_BRIDGES,
 	M_FORGET_BRIDGES,
 	M_ARRIVED,
+	M_ARRIVED_TYPES,
 	M_ACTIVE,
 	M_CANDIDATES,
 	M_SHOTS,
@@ -229,10 +231,12 @@ void method_call(void *userdata, GDExtensionClassInstancePtr instance, const GDE
 			world->settings.min_gap_depth = static_cast<float>(read_number(args[0]));
 			world->settings.max_span = static_cast<float>(read_number(args[1]));
 			world->settings.tunnel_speed = static_cast<float>(read_number(args[2]));
+			world->settings.mud_speed = static_cast<float>(read_number(args[3]));
 			break;
 		case M_SET_TYPE: {
-			// Order: walk, uphill, climb, climb slope, boat, embark, bridge, crew, hp, reward, r, g, b, scale.
-			const std::vector<float> p = read_floats(args[1], 14);
+			// Order: walk, uphill, climb, climb slope, boat, embark, bridge, crew, hp, reward, r, g, b, scale,
+			// water style (0 boat, 1 swim, 2 dive).
+			const std::vector<float> p = read_floats(args[1], 15);
 			pathcore::UnitType type;
 			type.walk_speed = p[0];
 			type.uphill_penalty = p[1];
@@ -248,6 +252,7 @@ void method_call(void *userdata, GDExtensionClassInstancePtr instance, const GDE
 			type.g = p[11];
 			type.b = p[12];
 			type.scale = p[13];
+			type.water_style = static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(p[14])), 0, 2));
 			world->set_type(static_cast<int>(read_number(args[0])), type);
 			break;
 		}
@@ -394,6 +399,9 @@ void method_call(void *userdata, GDExtensionClassInstancePtr instance, const GDE
 		case M_ARRIVED:
 			return_int(ret, world->arrived());
 			break;
+		case M_ARRIVED_TYPES:
+			return_floats(ret, world->arrived_types());
+			break;
 		case M_ACTIVE:
 			return_int(ret, world->active());
 			break;
@@ -477,7 +485,7 @@ void initialize(void *, GDExtensionInitializationLevel level) {
 	const GDExtensionVariantType FLOAT = GDEXTENSION_VARIANT_TYPE_FLOAT;
 	const GDExtensionVariantType FLOATS = GDEXTENSION_VARIANT_TYPE_PACKED_FLOAT32_ARRAY;
 	const GDExtensionVariantType BYTES = GDEXTENSION_VARIANT_TYPE_PACKED_BYTE_ARRAY;
-	add_method("configure", M_CONFIGURE, { FLOAT, FLOAT, FLOAT }, NIL);
+	add_method("configure", M_CONFIGURE, { FLOAT, FLOAT, FLOAT, FLOAT }, NIL);
 	add_method("set_void_level", M_SET_VOID_LEVEL, { FLOAT }, NIL);
 	add_method("set_type", M_SET_TYPE, { INT, FLOATS }, NIL);
 	add_method("set_active_types", M_SET_ACTIVE_TYPES, { FLOATS, INT }, NIL);
@@ -523,6 +531,7 @@ void initialize(void *, GDExtensionInitializationLevel level) {
 	add_method("bridges", M_BRIDGES, {}, FLOATS);
 	add_method("forget_bridges", M_FORGET_BRIDGES, {}, NIL);
 	add_method("arrived", M_ARRIVED, {}, INT);
+	add_method("arrived_types", M_ARRIVED_TYPES, {}, FLOATS);
 	add_method("active", M_ACTIVE, {}, INT);
 	add_method("bridge_candidates", M_CANDIDATES, {}, INT);
 }

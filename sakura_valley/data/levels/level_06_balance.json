@@ -1,0 +1,18 @@
+{
+	"strategies": {
+		"a_guard_east_wide": { "stars": 1, "terrain": [], "zones": [[48, 0, 40]] },
+		"a2_guard_east_catapult": { "stars": 1, "terrain": [], "zones": [[48, 0, 40]], "tower": "catapult" },
+		"a3_guard_east_split": { "goal": "any", "terrain": [], "zones": [[52, -32, 24], [52, 32, 24]], "alternate": true },
+		"b_dam_cannon": { "stars": 3, "terrain": [{ "preset": "ridge", "x": 8, "z": -148, "yaw": 0.0 }], "zones": [[48, 0, 40]] },
+		"b2_dam_catapult": { "stars": 3, "terrain": [{ "preset": "ridge", "x": 8, "z": -148, "yaw": 0.0 }], "zones": [[45, -18, 18], [45, 18, 18]], "alternate": true, "tower": "catapult" },
+		"b3_dam_canyon_edge": { "stars": [2, 3], "terrain": [{ "preset": "ridge", "x": 8, "z": -148, "yaw": 0.0 }], "zones": [[45, -18, 18], [45, 18, 18]], "alternate": true },
+		"c_islands_scatter": { "stars": 3, "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true, "plan": ["scatter"], "upgrade_first": true },
+		"c2_islands_heavy": { "stars": 3, "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true, "plan": ["heavy"], "upgrade_first": true },
+		"c3_islands_plain": { "stars": 2, "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true },
+		"c4_islands_quake": { "stars": 2, "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true, "plan": ["heavy", "quake"], "upgrade_first": true },
+		"c5_islands_rubble": { "stars": 2, "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true, "tower": "catapult", "plan": ["boulder", "rubble"], "upgrade_first": true },
+		"c6_islands_fan": { "goal": "any", "terrain": [{ "raise": [4, -36, 9, 6] }, { "raise": [4, 36, 9, 6] }], "zones": [[4, -36, 7], [4, 36, 7], [50, 0, 30]], "alternate": true, "plan": ["scatter", "fan"], "upgrade_first": true },
+		"n_naive_east": { "goal": "lose", "terrain": [], "zones": [[60, -30, 30], [60, 30, 30]], "alternate": true, "naive": true },
+		"n_naive_west": { "goal": "lose", "terrain": [], "zones": [[-70, -35, 30], [-70, 35, 30]], "alternate": true, "naive": true }
+	}
+}

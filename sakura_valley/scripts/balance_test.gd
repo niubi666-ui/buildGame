@@ -12,6 +12,8 @@ const GRID_STEP := 9.0
 const GameConfig = preload("res://scripts/game_config.gd")
 ## A thoughtless player: the nearest spot to the zone centre that covers any route at all, not the best one.
 var naive := false
+## Upgrades from the first wave: fewer towers, each taken along the plan before the next is built.
+var upgrade_first := false
 const STRATEGIES := {
 	"a_no_terrain_split": {"goal": "any", "terrain": [], "zones": [[-112.0, 0.0, 70.0], [112.0, 0.0, 70.0]], "alternate": true},
 	"b_block_west": {"goal": "win", "terrain": [{"preset": "ridge", "x": -112.0, "z": -15.0, "yaw": 0.0}], "zones": [[112.0, 10.0, 75.0]], "late_zones": [[-85.0, 85.0, 40.0]]},
@@ -72,19 +74,46 @@ func run(main_node: Node3D, which: String) -> void:
 		names = [which]
 	var heights: PackedFloat32Array = terrain.heights.duplicate()
 	var water: PackedByteArray = terrain.water_mask.duplicate()
+	# --gold=N tries another starting purse without editing the level file.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--gold="):
+			brush.money = float(arg.trim_prefix("--gold="))
 	var start_money: float = brush.money
 	var correct := 0
 	for strategy_name: String in names:
 		var result: Dictionary = await _play(strategy_name, strategies[strategy_name], start_money)
-		var expected: String = strategies[strategy_name]["goal"]
-		var ok: bool = expected == "any" or result["outcome"] == expected
+		var want := _wanted_stars(strategies[strategy_name])
+		var stars := GameConfig.stars_for(int(result["home"]), paths.home_hp_max) if result["outcome"] == "win" else 0
+		var ok: bool = stars >= want.x and stars <= want.y
+		var expected := ("%d" % want.x if want.x == want.y else "%d-%d" % [want.x, want.y]) + " stars"
 		correct += 1 if ok else 0
-		print("BALANCE %s %s: %s (want %s); towers %d; home %d/%d; left gold %d; route %s; %s" % [
-			"ok  " if ok else "MISS", strategy_name, result["outcome"], expected, result["towers"], result["home"], paths.home_hp_max, result["gold"], result["route"], result["waves"],
+		var spots: PackedStringArray = []
+		for tower: Dictionary in towers.towers:
+			var apex: Vector3 = tower["apex"]
+			spots.append("%d,%d,%d" % [int(apex.x), int(apex.z), int(apex.y)])
+		print("BALANCE %s towers at %s" % [strategy_name, " ".join(spots)])
+		print("BALANCE %s %s: %s, %d stars (want %s); towers %d; home %d/%d; left gold %d; route %s; %s" % [
+			"ok  " if ok else "MISS", strategy_name, result["outcome"], stars, expected, result["towers"], result["home"], paths.home_hp_max, result["gold"], result["route"], result["waves"],
 		])
 		_reset(heights, water, start_money)
 	print("BALANCE %d of %d strategies end as designed" % [correct, names.size()])
 	get_tree().quit()
+
+
+## The stars a strategy should end with, as (lowest, highest). "stars" is a number or [low, high];
+## without it, "goal" decides: "lose" is none, "win" is one to three, "any" is anything.
+func _wanted_stars(strategy: Dictionary) -> Vector2i:
+	if strategy.has("stars"):
+		var stars = strategy["stars"]
+		if stars is Array:
+			return Vector2i(int(stars[0]), int(stars[1]))
+		return Vector2i(int(stars), int(stars))
+	match String(strategy.get("goal", "any")):
+		"lose":
+			return Vector2i(0, 0)
+		"win":
+			return Vector2i(1, 3)
+	return Vector2i(0, 3)
 
 
 func _reset(heights: PackedFloat32Array, water: PackedByteArray, money: float) -> void:
@@ -112,6 +141,7 @@ func _reset(heights: PackedFloat32Array, water: PackedByteArray, money: float) -
 
 func _play(strategy_name: String, strategy: Dictionary, start_money: float) -> Dictionary:
 	naive = strategy.get("naive", false)
+	upgrade_first = strategy.get("upgrade_first", false)
 	towers.place_type = strategy.get("tower", "normal")
 	for step: Dictionary in strategy["terrain"]:
 		_apply_terrain(step, strategy_name)
@@ -126,7 +156,7 @@ func _play(strategy_name: String, strategy: Dictionary, start_money: float) -> D
 			_watch_type("climber")
 		_buy_towers(strategy["late_zones"] if late else strategy["zones"], alternate, strategy.get("plan", []))
 		var numbers := _run_wave()
-		waves_text.append("w%d kills %d arrived %d" % [paths.wave, numbers["kills"], numbers["arrived"]])
+		waves_text.append("w%d kills %d arrived %d%s" % [paths.wave, numbers["kills"], numbers["arrived"], numbers["who"]])
 		if paths.home_hp <= 0:
 			paths.outcome = "lost"
 		elif paths.next_wave().is_empty():
@@ -175,6 +205,10 @@ func _apply_terrain(step: Dictionary, strategy_name: String) -> void:
 	brush.money -= cost
 	var patch: Dictionary = terrain.make_preset_patch(shape, at.x, at.y, fit["yaw"])
 	terrain.set_patch_progress(patch, 1.0)
+	# A ridge across a river is a dam, so the water below it must drain as it does for the player.
+	if terrain.water_dirty:
+		terrain.refresh_water()
+	print("BALANCE %s: %s at (%d, %d) costs %d" % [strategy_name, step["preset"], int(at.x), int(at.y), int(cost)])
 
 
 ## Spends all the money, one tower at a time, on the best spot left in the allowed areas.
@@ -182,7 +216,7 @@ func _apply_terrain(step: Dictionary, strategy_name: String) -> void:
 ## is built, and the money is saved up for the next step rather than spent on a new tower.
 func _buy_towers(zones: Array, alternate: bool, plan: Array = []) -> void:
 	# Like a player, the first wave is spent on towers. Upgrades come out of what later waves earn.
-	if paths.wave == 0:
+	if paths.wave == 0 and not upgrade_first:
 		plan = []
 	if not _buy_upgrades(plan):
 		return
@@ -287,7 +321,14 @@ func _run_wave() -> Dictionary:
 	var arrived: int = core.arrived()
 	brush.money += core.earned()
 	paths.home_hp = maxi(paths.home_hp - arrived, 0)
-	return {"kills": kills, "arrived": arrived}
+	# Which types got through, so a strategy that fails shows what beat it.
+	var by_type: PackedFloat32Array = core.arrived_types()
+	var who: PackedStringArray = []
+	for id: String in paths.type_index:
+		var index: int = paths.type_index[id]
+		if index < by_type.size() and by_type[index] > 0.0:
+			who.append("%s %d" % [id, int(by_type[index])])
+	return {"kills": kills, "arrived": arrived, "who": " (%s)" % ", ".join(who) if not who.is_empty() else ""}
 
 
 ## Makes tower aiming follow this type's route instead of the most common type's.

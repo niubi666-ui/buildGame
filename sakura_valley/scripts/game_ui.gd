@@ -61,6 +61,8 @@ var tunnel_sell_label: Label
 var end_screen: Control
 var end_title: Label
 var end_sub: Label
+var end_stars: HBoxContainer
+const STAR_SIZE := 52.0
 var retry_button: Button
 var next_button: Button
 var undo_button: Button
@@ -461,7 +463,7 @@ func _build_forecast() -> void:
 		others.add_theme_font_size_override("font_size", 14)
 		gate_row.add_child(others)
 		gate_rows.append({"route": route_name, "time": time, "others": others})
-	for entry: Array in [["walk", "步行", Kit.ROUTE_WALK], ["climb", "爬坡", Kit.ROUTE_CLIMB], ["boat", "划船", Kit.ROUTE_BOAT], ["bridge", "搭桥", Kit.ROUTE_BRIDGE], ["built", "走已有的桥", Kit.ROUTE_BUILT], ["tunnel", "穿隧道", Kit.ROUTE_TUNNEL]]:
+	for entry: Array in [["walk", "步行", Kit.ROUTE_WALK], ["climb", "爬坡", Kit.ROUTE_CLIMB], ["boat", "渡水", Kit.ROUTE_BOAT], ["bridge", "搭桥", Kit.ROUTE_BRIDGE], ["built", "走已有的桥", Kit.ROUTE_BUILT], ["tunnel", "穿隧道", Kit.ROUTE_TUNNEL]]:
 		var row := _hbox(8)
 		row.add_child(_dot(entry[2]))
 		row.add_child(_label(entry[1], "MutedLabel"))
@@ -964,6 +966,13 @@ func _build_end_screen() -> void:
 	head.add_child(_icon("sakura", 46.0))
 	end_title = _label("", "BannerLabel")
 	head.add_child(end_title)
+	end_stars = _hbox(10)
+	end_stars.alignment = BoxContainer.ALIGNMENT_CENTER
+	for n in 3:
+		var star := _icon("star_empty", STAR_SIZE)
+		star.pivot_offset = Vector2(STAR_SIZE, STAR_SIZE) * 0.5
+		end_stars.add_child(star)
+	stack.add_child(end_stars)
 	end_sub = _label("", "MutedLabel")
 	end_sub.add_theme_font_size_override("font_size", 17)
 	end_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1269,18 +1278,39 @@ func _on_tools_changed() -> void:
 
 
 func _on_level_finished(won: bool) -> void:
+	var stars := GameConfig.stars_for(paths.home_hp, paths.home_hp_max) if won else 0
+	end_stars.visible = paths.home_hp_max > 0
+	for n in 3:
+		var star: TextureRect = end_stars.get_child(n)
+		star.texture = Kit.icon("star" if n < stars else "star_empty")
+		star.scale = Vector2.ONE
 	if won:
 		end_title.text = "家园守住了"
-		GameConfig.mark_cleared(main.level_id)
+		# A run with no home to lose (the --play check) proves nothing, so it never counts as cleared.
+		var best := false
+		if paths.home_hp_max > 0:
+			best = GameConfig.record_stars(main.level_id, stars)
 		var next := GameConfig.next_level(main.level_id)
 		next_button.visible = next != ""
-		end_sub.text = "挡住了全部 %d 波敌人，家园还剩 %d 点生命" % [paths.total_waves(), paths.home_hp]
+		var lines: PackedStringArray = ["挡住了全部 %d 波敌人，家园还剩 %d / %d 点生命" % [paths.total_waves(), paths.home_hp, paths.home_hp_max]]
+		if stars < 3 and paths.home_hp_max > 0:
+			var saved := GameConfig.best_stars(main.level_id)
+			lines.append("家园一点血都不掉，就能拿到三颗星。" if saved < 3 else "你在这一关拿到过三颗星。")
+		elif best:
+			lines.append("三颗星！这就是最好的守法。")
+		end_sub.text = "\n".join(lines)
 	else:
 		end_title.text = "家园失守"
 		end_sub.text = "倒在了第 %d 波。\n%s" % [paths.wave, paths.level["goal_hint"]]
 	end_screen.visible = true
 	end_screen.modulate.a = 0.0
-	create_tween().tween_property(end_screen, "modulate:a", 1.0, 0.5)
+	var tween := create_tween()
+	tween.tween_property(end_screen, "modulate:a", 1.0, 0.5)
+	# The earned stars pop in one after another.
+	for n in stars:
+		var star: TextureRect = end_stars.get_child(n)
+		star.scale = Vector2.ONE * 0.2
+		tween.tween_property(star, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Leaving loses the battle, so the first press only asks.
