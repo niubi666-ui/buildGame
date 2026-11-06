@@ -666,7 +666,36 @@ int World::add_tower(const Cone &cone, float damage, float cooldown, float splas
 }
 
 void World::remove_tower(int id) {
-	towers_.erase(std::remove_if(towers_.begin(), towers_.end(), [id](const Tower &t) { return t.id == id; }), towers_.end());
+	for (auto *list : { &towers_, &parked_towers_ }) {
+		list->erase(std::remove_if(list->begin(), list->end(), [id](const Tower &t) { return t.id == id; }), list->end());
+	}
+}
+
+void World::set_tower_parked(int id, bool parked) {
+	auto &from = parked ? towers_ : parked_towers_;
+	auto &to = parked ? parked_towers_ : towers_;
+	auto item = std::find_if(from.begin(), from.end(), [id](const Tower &tower) { return tower.id == id; });
+	if (item == from.end()) {
+		return;
+	}
+	// Towers normally fire in creation order, including after undoing a sale.
+	auto destination = std::lower_bound(to.begin(), to.end(), id, [](const Tower &tower, int key) { return tower.id < key; });
+	to.insert(destination, *item);
+	from.erase(item);
+}
+
+float World::tower_timer(int id) const {
+	const Tower *tower = find_tower(id);
+	return tower ? tower->timer : 0.0f;
+}
+
+void World::restore_tower_timer(int id, float timer) {
+	for (Tower &tower : towers_) {
+		if (tower.id == id) {
+			tower.timer = timer;
+			return;
+		}
+	}
 }
 
 void World::set_tower_aim(int id, float dx, float dy, float dz) {

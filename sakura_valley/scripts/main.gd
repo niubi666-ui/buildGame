@@ -17,6 +17,7 @@ const TerrainData = preload("res://scripts/terrain_data.gd")
 const Flora = preload("res://scripts/flora.gd")
 const Props = preload("res://scripts/props.gd")
 const BrushController = preload("res://scripts/brush_controller.gd")
+const BuildHistory = preload("res://scripts/build_history.gd")
 const PathManager = preload("res://scripts/path_manager.gd")
 const TowerManager = preload("res://scripts/tower_manager.gd")
 const GameUI = preload("res://scripts/game_ui.gd")
@@ -54,6 +55,7 @@ var water_material: ShaderMaterial
 var live_ground_material: ShaderMaterial
 var shafts: MeshInstance3D
 var brush: Node
+var history: BuildHistory
 var paths: Node
 var towers: Node
 var tools: Node
@@ -113,7 +115,10 @@ func _ready() -> void:
 	feel = TerrainFeel.new()
 	add_child(feel)
 	feel.setup(self, tools_config["feel"])
+	history = BuildHistory.new()
+	history.limit = int(tools_config["brush"]["max_undo"])
 	brush = BrushController.new()
+	brush.history = history
 	add_child(brush)
 	brush.setup(terrain, camera, water_node, tree_nodes, lanterns, tools_config, float(level["start_gold"]), feel)
 	paths = PathManager.new()
@@ -131,6 +136,8 @@ func _ready() -> void:
 	ui = GameUI.new()
 	add_child(ui)
 	ui.setup(self, brush, paths, towers, tools)
+	# Exit before the controllers so they can release objects kept for undo.
+	add_child(history)
 	apply_view(view_order[0])
 	print("BUILD ", level_id, " total ", Time.get_ticks_msec() - start, " ms; GPU: ", RenderingServer.get_video_adapter_name())
 	if args.has("ridgesweep"):

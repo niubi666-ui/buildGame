@@ -175,7 +175,7 @@ func _wheel_size(modifier: String, up: bool) -> bool:
 
 
 func activate(id: String) -> void:
-	if brush.locked or not job.is_empty():
+	if brush.locked or brush.painting or brush.ground_busy:
 		return
 	if active_id == id:
 		cancel()
@@ -460,7 +460,7 @@ func _draw_preview(points: PackedFloat32Array, side: int) -> void:
 
 ## Places a preset. The ground rises or sinks over a moment, then routes are worked out again.
 func place_preset(preset: Dictionary, at: Vector2, rotation_y: float, grow := true) -> bool:
-	if not job.is_empty() or brush.locked:
+	if brush.locked or brush.painting or brush.ground_busy:
 		return false
 	var fit := fit_preset(preset, at, rotation_y, false, grow)
 	var shape: Dictionary = fit["preset"]
@@ -470,13 +470,14 @@ func place_preset(preset: Dictionary, at: Vector2, rotation_y: float, grow := tr
 	if float(preview["volume"]) <= 1.0 or brush.money < float(cost):
 		return false
 	var patch: Dictionary = terrain.make_preset_patch(shape, at.x, at.y, rotation_y)
-	var saved: PackedFloat32Array = terrain.heights.duplicate()
-	brush.undo_stack.append({"heights": saved, "money": brush.money, "rect": patch["rect"]})
+	if patch["indices"].is_empty():
+		return false
 	brush.money -= float(cost)
 	brush.ground_busy = true
 	job = {
 		"patch": patch, "time": 0.0, "duration": float(config["preset_rise_seconds"]),
 		"at": Vector3(at.x, terrain.height_at(at.x, at.y), at.y), "radius": terrain.preset_reach(shape),
+		"label": String(preset["name"]), "cost": cost,
 	}
 	ghost.visible = false
 	_show_gaps([])
@@ -493,10 +494,19 @@ func _advance_job(delta: float) -> void:
 	brush.sync_followers_near(Vector2(at.x, at.z), job["radius"])
 	feel.shake(at, job["radius"], 1.0 - t * 0.5)
 	if t >= 1.0:
+		var patch: Dictionary = job["patch"]
+		brush.history.record(job["label"], _undo_preset.bind(patch["indices"], patch["starts"], patch["rect"], job["cost"]))
 		job = {}
 		brush.ground_busy = false
 		brush.finish_ground_change()
 		last_key = PackedFloat32Array()
+
+
+func _undo_preset(indices: PackedInt32Array, starts: PackedFloat32Array, rect: Rect2i, cost: int) -> void:
+	terrain.restore_cells(indices, starts, rect)
+	brush.money += float(cost)
+	brush.finish_ground_change()
+	last_key = PackedFloat32Array()
 
 
 func _preview_tunnel(at: Vector2) -> void:
@@ -539,40 +549,41 @@ func _draw_tunnel_line(from: Vector3, to: Vector3) -> void:
 
 
 func build_tunnel(start: Vector2, finish: Vector2) -> bool:
+	if brush.locked or brush.painting or brush.ground_busy:
+		return false
 	var rules: Dictionary = config["tunnel"]
 	var plan: Dictionary = terrain.plan_tunnel(start, finish, rules)
-	if not plan["ok"] or brush.money < float(plan["cost"]) or brush.locked:
+	if not plan["ok"] or brush.money < float(plan["cost"]):
 		return false
-	var money_before: float = brush.money
 	brush.money -= float(plan["cost"])
 	var half_width: float = rules["cut_half_width"]
 	var door_a: Vector2 = plan["door_a"]
 	var door_b: Vector2 = plan["door_b"]
 	var patch_a: Dictionary = terrain.cut_tunnel_mouth(start, door_a, plan["level_a"], half_width)
 	var patch_b: Dictionary = terrain.cut_tunnel_mouth(finish, door_b, plan["level_b"], half_width)
-	terrain.upload_state()
 	var axis: Vector2 = plan["axis"]
 	# Link points stand just outside each door, on the floor of the cutting.
 	var link_a: Vector2 = door_a - axis * 1.5
 	var link_b: Vector2 = door_b + axis * 1.5
-	var id: int = paths.core.add_tunnel(link_a.x, link_a.y, link_b.x, link_b.y)
 	var node_a := _make_portal(door_a, axis, plan["level_a"])
 	var node_b := _make_portal(door_b, -axis, plan["level_b"])
 	var locks: Array[Vector2] = [start, door_a, finish, door_b]
-	for spot in locks:
-		terrain.add_ground_lock(spot.x, spot.y)
 	var tunnel := {
-		"id": id, "nodes": [node_a, node_b], "doors": [door_a, door_b], "levels": [plan["level_a"], plan["level_b"]],
+		"links": [link_a, link_b], "nodes": [node_a, node_b], "doors": [door_a, door_b], "levels": [plan["level_a"], plan["level_b"]],
 		"patches": [patch_a, patch_b], "locks": locks, "paid": plan["cost"], "length": plan["length"],
 	}
-	tunnels.append(tunnel)
+	_attach_tunnel(tunnel, tunnels.size())
+	# A live tunnel needs the cut deltas when it is filled. Only its build command needs the old heights.
+	var starts := [patch_a["starts"], patch_b["starts"]]
+	patch_a.erase("starts")
+	patch_b.erase("starts")
+	var trees := []
 	for spot: Vector2 in [door_a, door_b]:
-		brush.clear_trees_near(spot.x, spot.y, 12.0)
+		trees.append_array(brush.clear_trees_near(spot.x, spot.y, 12.0))
 	for spot: Vector3 in [Vector3(start.x, plan["level_a"], start.y), Vector3(finish.x, plan["level_b"], finish.y)]:
 		feel.shake(spot, 10.0, 1.0)
-	brush.undo_stack.append({"money": money_before, "undo": _remove_tunnel.bind(tunnel), "rect": patch_a["rect"]})
-	brush.finish_ground_change()
-	state_changed.emit()
+	brush.history.record("打通隧道", _undo_build_tunnel.bind(tunnel, starts, trees), brush.discard_cleared_trees.bind(trees))
+	_finish_tunnel_change()
 	return true
 
 
@@ -593,18 +604,55 @@ func _keep_off_brush_ring(node: Node) -> void:
 		_keep_off_brush_ring(child)
 
 
-func _remove_tunnel(tunnel: Dictionary) -> void:
-	paths.core.remove_tunnel(tunnel["id"])
+func _attach_tunnel(tunnel: Dictionary, slot: int) -> void:
+	var a: Vector2 = tunnel["links"][0]
+	var b: Vector2 = tunnel["links"][1]
+	tunnel["id"] = paths.core.add_tunnel(a.x, a.y, b.x, b.y)
+	for spot: Vector2 in tunnel["locks"]:
+		terrain.add_ground_lock(spot.x, spot.y)
+	for node: Node3D in tunnel["nodes"]:
+		node.show()
+	tunnels.insert(slot, tunnel)
+
+
+func _free_portals(tunnel: Dictionary) -> void:
 	for node: Node3D in tunnel["nodes"]:
 		node.queue_free()
+
+
+func _remove_tunnel(tunnel: Dictionary, keep_portals := false, previous: Array = []) -> void:
+	paths.core.remove_tunnel(tunnel["id"])
+	if keep_portals:
+		for node: Node3D in tunnel["nodes"]:
+			node.hide()
+	else:
+		_free_portals(tunnel)
 	for spot: Vector2 in tunnel["locks"]:
 		terrain.remove_ground_lock(spot.x, spot.y)
-	for patch: Dictionary in tunnel["patches"]:
-		terrain.remove_tower_pad(patch)
-	terrain.upload_state()
+	# Reverse the cuts in order in case the approaches share cells.
+	var patches: Array = tunnel["patches"]
+	for n in range(patches.size() - 1, -1, -1):
+		var patch: Dictionary = patches[n]
+		if previous.is_empty():
+			terrain.apply_ground_patch(patch, -1.0)
+		else:
+			terrain.restore_cells(patch["indices"], previous[n], patch["rect"])
 	tunnels.erase(tunnel)
 	if selected_tunnel == tunnel:
 		selected_tunnel = {}
+		brush.ring_hidden = false
+
+
+func _undo_build_tunnel(tunnel: Dictionary, starts: Array, trees: Array) -> void:
+	_remove_tunnel(tunnel, false, starts)
+	brush.restore_cleared_trees(trees)
+	brush.money += float(tunnel["paid"])
+	_finish_tunnel_change()
+
+
+func _finish_tunnel_change() -> void:
+	last_key = PackedFloat32Array()
+	brush.finish_ground_change()
 	state_changed.emit()
 
 
@@ -649,11 +697,25 @@ func tunnel_refund() -> int:
 
 ## Fills in the selected tunnel and gives back part of its price.
 func remove_selected_tunnel() -> void:
-	if selected_tunnel.is_empty() or brush.locked:
+	if selected_tunnel.is_empty() or brush.locked or brush.painting or brush.ground_busy:
 		return
 	var tunnel := selected_tunnel
-	brush.money += float(tunnel_refund())
-	brush.ring_hidden = false
-	_remove_tunnel(tunnel)
-	brush.clear_undo()
-	brush.finish_ground_change()
+	var refund := tunnel_refund()
+	var slot := tunnels.find(tunnel)
+	var previous := []
+	for patch: Dictionary in tunnel["patches"]:
+		previous.append(terrain.capture_patch_heights(patch))
+	brush.money += float(refund)
+	_remove_tunnel(tunnel, true)
+	brush.history.record("填平隧道", _undo_fill_tunnel.bind(tunnel, slot, previous, refund), _free_portals.bind(tunnel))
+	_finish_tunnel_change()
+
+
+func _undo_fill_tunnel(tunnel: Dictionary, slot: int, previous: Array, refund: int) -> void:
+	var patches: Array = tunnel["patches"]
+	for n in patches.size():
+		var patch: Dictionary = patches[n]
+		terrain.restore_cells(patch["indices"], previous[n], patch["rect"])
+	_attach_tunnel(tunnel, slot)
+	brush.money -= float(refund)
+	_finish_tunnel_change()

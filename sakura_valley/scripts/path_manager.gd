@@ -86,6 +86,8 @@ var last_solve_ms := 0.0
 var last_step_ms := 0.0
 ## Game speed. It scales only the battle, so the camera and water keep their normal pace.
 var speed := 1.0
+## A tactical pause stops the current wave while tower controls keep processing input.
+var battle_paused := false
 ## Seconds of battle simulated so far.
 var sim_time := 0.0
 var route_points := PackedFloat32Array()
@@ -276,6 +278,14 @@ func set_speed(index: int) -> void:
 	speed = SPEEDS[index]
 
 
+func set_battle_paused(value: bool) -> void:
+	battle_paused = value and phase == Phase.BATTLE and outcome == ""
+
+
+func toggle_battle_pause() -> void:
+	set_battle_paused(not battle_paused)
+
+
 ## Gives the core the current terrain, then works out and shows the new route.
 func replan() -> void:
 	var begin := Time.get_ticks_usec()
@@ -436,7 +446,7 @@ func start_battle() -> void:
 	wave += 1
 	brush.end_stroke()
 	brush.locked = true
-	brush.clear_undo()
+	brush.history.enabled = false
 	route.visible = false
 	core.begin_wave()
 	var total := 0
@@ -465,6 +475,7 @@ func spawn_wave(count: int, interval: float) -> void:
 
 
 func _wave_started(total: int) -> void:
+	battle_paused = false
 	wave_total = total
 	last_arrived = 0
 	last_earned = 0.0
@@ -474,6 +485,7 @@ func _wave_started(total: int) -> void:
 
 
 func end_battle() -> void:
+	battle_paused = false
 	phase = Phase.BUILD
 	battle_ended.emit()
 	brush.locked = false
@@ -486,11 +498,13 @@ func end_battle() -> void:
 	if next_wave().is_empty():
 		_finish_level(true)
 		return
+	brush.history.enabled = true
 	route.visible = true
 	replan()
 
 
 func _finish_level(won: bool) -> void:
+	battle_paused = false
 	outcome = "won" if won else "lost"
 	brush.locked = true
 	level_finished.emit(won)
@@ -505,6 +519,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if battle_paused:
+		return
 	fx.advance(delta * speed)
 	if phase != Phase.BATTLE:
 		fire_layer.multimesh.visible_instance_count = 0

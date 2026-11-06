@@ -306,6 +306,7 @@ func shape_tower_pad(plane: Dictionary, inner: float, outer: float) -> Dictionar
 	var j1 := mini(int((z + outer + half) / step) + 1, RES - 2)
 	var indices := PackedInt32Array()
 	var deltas := PackedFloat32Array()
+	var starts := PackedFloat32Array()
 	for j in range(j0, j1 + 1):
 		var dz := -half + float(j) * step - z
 		for i in range(i0, i1 + 1):
@@ -321,12 +322,15 @@ func shape_tower_pad(plane: Dictionary, inner: float, outer: float) -> Dictionar
 			var before := heights[index]
 			var after := clampf(lerpf(before, c + rise, weight), MIN_HEIGHT, MAX_HEIGHT)
 			heights[index] = after
+			if heights[index] == before:
+				continue
 			indices.append(index)
-			deltas.append(after - before)
-			if (before < WATER_LEVEL) != (after < WATER_LEVEL):
+			starts.append(before)
+			deltas.append(heights[index] - before)
+			if (before < WATER_LEVEL) != (heights[index] < WATER_LEVEL):
 				water_dirty = true
 	_refresh_rect(maxi(i0 - 1, 0), maxi(j0 - 1, 0), mini(i1 + 1, RES - 1), mini(j1 + 1, RES - 1))
-	return {"indices": indices, "deltas": deltas, "rect": Rect2i(i0, j0, i1 - i0, j1 - j0)}
+	return {"indices": indices, "starts": starts, "deltas": deltas, "rect": Rect2i(i0, j0, i1 - i0 + 1, j1 - j0 + 1)}
 
 
 ## How far a preset moves the ground at one point. Rise is positive, digging negative.
@@ -473,9 +477,12 @@ func make_preset_patch(preset: Dictionary, cx: float, cz: float, yaw: float) -> 
 			if change > 0.0:
 				change *= lerpf(1.0, brush_detail[index], 0.35)
 			var before := heights[index]
+			var delta := clampf(before + change, MIN_HEIGHT, MAX_HEIGHT) - before
+			if delta == 0.0:
+				continue
 			indices.append(index)
 			starts.append(before)
-			deltas.append(clampf(before + change, MIN_HEIGHT, MAX_HEIGHT) - before)
+			deltas.append(delta)
 	return {"indices": indices, "starts": starts, "deltas": deltas, "rect": Rect2i(i0, j0, i1 - i0 + 1, j1 - j0 + 1)}
 
 
@@ -490,7 +497,7 @@ func set_patch_progress(patch: Dictionary, progress: float) -> void:
 	_refresh_rect(maxi(rect.position.x - 1, 0), maxi(rect.position.y - 1, 0), mini(rect.end.x, RES - 1), mini(rect.end.y, RES - 1))
 	if progress >= 1.0:
 		for n in indices.size():
-			if (starts[n] < WATER_LEVEL) != (starts[n] + deltas[n] < WATER_LEVEL):
+			if (starts[n] < WATER_LEVEL) != (heights[indices[n]] < WATER_LEVEL):
 				water_dirty = true
 				break
 
@@ -559,14 +566,16 @@ func cut_tunnel_mouth(mouth: Vector2, door: Vector2, level: float, half_width: f
 	var run := door - mouth
 	var length := run.length()
 	var axis := run / maxf(length, 0.01)
-	var reach := length + half_width + 8.0
+	# Bound the cutting and its end and side fades so a long approach refreshes only its strip.
+	var reach := run.abs() * 0.5 + Vector2.ONE * (half_width + 3.5 + 6.0)
 	var center := (mouth + door) * 0.5
-	var i0 := maxi(int((center.x - reach + half) / step), 1)
-	var i1 := mini(int((center.x + reach + half) / step) + 1, RES - 2)
-	var j0 := maxi(int((center.y - reach + half) / step), 1)
-	var j1 := mini(int((center.y + reach + half) / step) + 1, RES - 2)
+	var i0 := maxi(int((center.x - reach.x + half) / step), 1)
+	var i1 := mini(int((center.x + reach.x + half) / step) + 1, RES - 2)
+	var j0 := maxi(int((center.y - reach.y + half) / step), 1)
+	var j1 := mini(int((center.y + reach.y + half) / step) + 1, RES - 2)
 	var indices := PackedInt32Array()
 	var deltas := PackedFloat32Array()
+	var starts := PackedFloat32Array()
 	for j in range(j0, j1 + 1):
 		var dz := -half + float(j) * step - mouth.y
 		for i in range(i0, i1 + 1):
@@ -585,23 +594,39 @@ func cut_tunnel_mouth(mouth: Vector2, door: Vector2, level: float, half_width: f
 				continue
 			heights[index] = after
 			indices.append(index)
-			deltas.append(after - before)
+			starts.append(before)
+			deltas.append(heights[index] - before)
+			if (before < WATER_LEVEL) != (heights[index] < WATER_LEVEL):
+				water_dirty = true
 	_refresh_rect(maxi(i0 - 1, 0), maxi(j0 - 1, 0), mini(i1 + 1, RES - 1), mini(j1 + 1, RES - 1))
-	return {"indices": indices, "deltas": deltas, "rect": Rect2i(i0, j0, i1 - i0, j1 - j0)}
+	return {"indices": indices, "starts": starts, "deltas": deltas, "rect": Rect2i(i0, j0, i1 - i0 + 1, j1 - j0 + 1)}
 
 
 ## Undoes shape_tower_pad. Changes are subtracted, so other edits nearby are kept.
 func remove_tower_pad(patch: Dictionary) -> void:
+	apply_ground_patch(patch, -1.0)
+
+
+## Adds or removes a structure's own height changes, preserving edits made around it since placement.
+func apply_ground_patch(patch: Dictionary, direction: float) -> void:
 	var indices: PackedInt32Array = patch["indices"]
 	var deltas: PackedFloat32Array = patch["deltas"]
 	for n in indices.size():
 		var before := heights[indices[n]]
-		var after := before - deltas[n]
-		heights[indices[n]] = after
-		if (before < WATER_LEVEL) != (after < WATER_LEVEL):
+		heights[indices[n]] = before + direction * deltas[n]
+		if (before < WATER_LEVEL) != (heights[indices[n]] < WATER_LEVEL):
 			water_dirty = true
 	var rect: Rect2i = patch["rect"]
-	_refresh_rect(maxi(rect.position.x - 1, 0), maxi(rect.position.y - 1, 0), mini(rect.end.x + 1, RES - 1), mini(rect.end.y + 1, RES - 1))
+	_refresh_rect(maxi(rect.position.x - 1, 0), maxi(rect.position.y - 1, 0), mini(rect.end.x, RES - 1), mini(rect.end.y, RES - 1))
+
+
+func capture_patch_heights(patch: Dictionary) -> PackedFloat32Array:
+	var indices: PackedInt32Array = patch["indices"]
+	var values := PackedFloat32Array()
+	values.resize(indices.size())
+	for n in indices.size():
+		values[n] = heights[indices[n]]
+	return values
 
 
 ## Locks the ground at a tower or tunnel mouth, fading back to editable just past its footing.
@@ -704,7 +729,7 @@ func _refresh_rect(i0: int, j0: int, i1: int, j1: int) -> void:
 ## Applies one frame of a brush. Amount depends on the tool: metres for raise and lower,
 ## 0-1 blend for smooth and flatten, metres of sideways push for pinch (negative stretches).
 ## Returns the volume of ground moved, in cubic metres, and the changed rectangle.
-func apply_brush(tool: int, cx: float, cz: float, radius: float, amount: float, target_height: float) -> Dictionary:
+func apply_brush(tool: int, cx: float, cz: float, radius: float, amount: float, target_height: float, originals: Variant = null) -> Dictionary:
 	var half := SIZE * 0.5
 	var ci := (cx + half) / step
 	var cj := (cz + half) / step
@@ -780,6 +805,11 @@ func apply_brush(tool: int, cx: float, cz: float, radius: float, amount: float, 
 					after = lerpf(lerpf(old[row0], old[row0 + 1], tx), lerpf(old[row1], old[row1 + 1], tx), tz)
 			after = clampf(after, MIN_HEIGHT, MAX_HEIGHT)
 			heights[index] = after
+			after = heights[index]
+			if after == before:
+				continue
+			if originals != null and not originals.has(index):
+				originals[index] = before
 			moved += absf(after - before)
 			if (before < WATER_LEVEL) != (after < WATER_LEVEL):
 				water_dirty = true
@@ -788,7 +818,17 @@ func apply_brush(tool: int, cx: float, cz: float, radius: float, amount: float, 
 	return {"volume": moved * step * step, "rect": rect}
 
 
-## Restores a saved copy of the heights, used by undo.
+## Restores only the edited cells. A one-cell border supplies neighbouring normals.
+func restore_cells(indices: PackedInt32Array, previous: PackedFloat32Array, rect: Rect2i) -> void:
+	for n in indices.size():
+		heights[indices[n]] = previous[n]
+	var bounds := rect.grow(1).intersection(Rect2i(0, 0, RES, RES))
+	if bounds.has_area():
+		_refresh_rect(bounds.position.x, bounds.position.y, bounds.end.x - 1, bounds.end.y - 1)
+	water_dirty = true
+
+
+## Restores a whole saved map for the terrain tests.
 func restore_heights(saved: PackedFloat32Array, rect: Rect2i) -> void:
 	heights = saved.duplicate()
 	_refresh_rect(rect.position.x, rect.position.y, mini(rect.end.x - 1, RES - 1), mini(rect.end.y - 1, RES - 1))

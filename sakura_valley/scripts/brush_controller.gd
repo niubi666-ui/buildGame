@@ -2,6 +2,7 @@ extends Node
 ## Terrain brush: mouse input, brush ring, cost and undo.
 
 const TerrainData = preload("res://scripts/terrain_data.gd")
+const BuildHistory = preload("res://scripts/build_history.gd")
 const TOOL_INFO := [
 	{"id": TerrainData.TOOL_RAISE, "name": "增高", "key": KEY_Q, "letter": "Q", "icon": "raise", "tip": "按住左键抬高地面，敌人遇到高山可能绕路"},
 	{"id": TerrainData.TOOL_LOWER, "name": "下挖", "key": KEY_E, "letter": "E", "icon": "lower", "tip": "按住左键挖低地面，深坑会逼敌人搭桥或爬行"},
@@ -26,7 +27,6 @@ var raise_rate := 5.5
 var smooth_rate := 6.0
 var flatten_rate := 5.0
 var pinch_rate := 5.0
-var max_undo := 20
 var min_radius := 3.0
 ## Larger brushes cost too much script time per frame to hold the frame rate.
 var max_radius := 40.0
@@ -51,6 +51,7 @@ var ring_hidden := false
 ## True while the mouse is over a button or panel rather than the world.
 var over_ui := false
 var followers: Array[Node3D] = []
+var all_trees: Array[Node3D] = []
 var hides_on_bare_ground := {}
 
 var tool: int = TerrainData.TOOL_LOWER
@@ -64,9 +65,9 @@ var hit := Vector3.ZERO
 ## Replaces the real cursor during the automated test, so it never moves the user's mouse.
 var test_mouse: Variant = null
 
-var undo_stack: Array[Dictionary] = []
-var stroke_saved := PackedFloat32Array()
-var stroke_money := 0.0
+var history: BuildHistory
+var stroke_originals := {}
+var stroke_spent := 0.0
 var stroke_rect := Rect2i()
 
 var ring: Decal
@@ -90,7 +91,6 @@ func setup(data, view_camera: Camera3D, water: MeshInstance3D, trees: Array[Node
 	smooth_rate = rates["smooth_rate"]
 	flatten_rate = rates["flatten_rate"]
 	pinch_rate = rates["pinch_rate"]
-	max_undo = rates["max_undo"]
 	min_radius = rates["min_radius"]
 	max_radius = rates["max_radius"]
 	max_pinch_radius = rates["max_pinch_radius"]
@@ -100,6 +100,7 @@ func setup(data, view_camera: Camera3D, water: MeshInstance3D, trees: Array[Node
 	flood_fill_seconds = tools_config["feel"]["flood_fill_seconds"]
 	terrain.flood_speed = tools_config["feel"]["flood_speed"]
 	water_node.material_override.set_shader_parameter("flood_fill_seconds", flood_fill_seconds)
+	all_trees = trees
 	for tree in trees:
 		followers.append(tree)
 		hides_on_bare_ground[tree] = true
@@ -150,6 +151,12 @@ func _pick_slope() -> void:
 		terrain.brush_plane = terrain.fit_ground_plane(hit.x, hit.z, radius)
 
 
+func _input(event: InputEvent) -> void:
+	# A stroke may finish over a control, which consumes the release before unhandled input.
+	if painting and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		end_stroke()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -182,11 +189,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func begin_stroke() -> void:
-	if not has_hit or locked or paused or tools_busy or ground_busy:
+	if painting or not has_hit or locked or paused or tools_busy or ground_busy:
 		return
 	painting = true
-	stroke_saved = terrain.heights.duplicate()
-	stroke_money = money
+	stroke_originals.clear()
+	stroke_spent = 0.0
 	stroke_rect = Rect2i()
 	flatten_height = terrain.height_at(hit.x, hit.z)
 	_pick_slope()
@@ -196,33 +203,65 @@ func end_stroke() -> void:
 	if not painting:
 		return
 	painting = false
-	if stroke_rect.has_area():
-		undo_stack.append({"heights": stroke_saved, "money": stroke_money, "rect": stroke_rect})
-		if undo_stack.size() > max_undo:
-			undo_stack.pop_front()
-	var changed := stroke_rect.has_area()
-	stroke_saved = PackedFloat32Array()
+	var changed := not stroke_originals.is_empty()
+	if changed:
+		var indices := PackedInt32Array(stroke_originals.keys())
+		var previous := PackedFloat32Array(stroke_originals.values())
+		history.record("地形笔刷", _undo_stroke.bind(indices, previous, stroke_rect, stroke_spent))
+		stroke_originals.clear()
 	_refresh_water_if_needed()
 	if changed:
 		terrain_changed.emit()
 
 
-## Undo would bring back old money and old ground, so it stops at battles and new towers.
+func _undo_stroke(indices: PackedInt32Array, previous: PackedFloat32Array, rect: Rect2i, spent: float) -> void:
+	terrain.restore_cells(indices, previous, rect)
+	money += spent
+	finish_ground_change()
+
+
 func clear_undo() -> void:
-	undo_stack.clear()
+	history.clear()
 
 
-## Trees standing where something is built topple, then are gone for good.
-func clear_trees_near(x: float, z: float, distance: float) -> void:
+## Keep cleared trees available until the build that removed them leaves history.
+func clear_trees_near(x: float, z: float, distance: float) -> Array:
+	var removed: Array = []
 	for node: Node3D in followers.duplicate():
 		if hides_on_bare_ground.has(node) and Vector2(node.position.x - x, node.position.z - z).length() < distance:
 			followers.erase(node)
 			hides_on_bare_ground.erase(node)
-			_topple(node, Vector2(node.position.x - x, node.position.z - z), true)
+			if not node.has_meta("full_scale"):
+				node.set_meta("full_scale", node.scale.x)
+			_topple(node, Vector2(node.position.x - x, node.position.z - z))
+			removed.append(node)
+	if not history.enabled:
+		discard_cleared_trees(removed)
+		return []
+	return removed
+
+
+func restore_cleared_trees(trees: Array) -> void:
+	if trees.is_empty():
+		return
+	for tree: Node3D in trees:
+		followers.append(tree)
+		hides_on_bare_ground[tree] = true
+	_sync_followers(Vector2.ZERO, 0.0, true)
+
+
+func discard_cleared_trees(trees: Array) -> void:
+	for tree: Node3D in trees:
+		all_trees.erase(tree)
+		var motion: Tween = tree.get_meta("motion")
+		if motion.is_running():
+			motion.finished.connect(tree.queue_free, CONNECT_ONE_SHOT)
+		else:
+			tree.queue_free()
 
 
 ## Tips a tree over away from the given direction, and shrinks it into the ground as it lands.
-func _topple(tree: Node3D, away: Vector2, remove: bool) -> void:
+func _topple(tree: Node3D, away: Vector2) -> void:
 	tree.set_meta("down", true)
 	var direction := away.normalized() if away.length() > 0.01 else Vector2.RIGHT
 	# Euler angles apply the tree's own turn last, so the fall is worked out in its turned frame.
@@ -236,7 +275,7 @@ func _topple(tree: Node3D, away: Vector2, remove: bool) -> void:
 	tween.tween_property(tree, "rotation:x", local.z * 1.45, fall_seconds)
 	tween.parallel().tween_property(tree, "rotation:z", -local.x * 1.45, fall_seconds)
 	tween.tween_property(tree, "scale", Vector3.ONE * 0.01, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_callback(tree.queue_free if remove else tree.hide)
+	tween.tween_callback(tree.hide)
 	tree.set_meta("motion", tween)
 
 
@@ -279,19 +318,9 @@ func effective_radius() -> float:
 
 
 func undo() -> void:
-	if undo_stack.is_empty() or painting or locked or ground_busy:
+	if painting or locked or ground_busy:
 		return
-	var entry: Dictionary = undo_stack.pop_back()
-	var rect: Rect2i = entry["rect"]
-	if entry.has("undo"):
-		entry["undo"].call()
-	else:
-		terrain.restore_heights(entry["heights"], rect)
-	money = entry["money"]
-	terrain.upload_state()
-	_refresh_water_if_needed()
-	_sync_followers(Vector2(rect.get_center()), 0.0, true)
-	terrain_changed.emit()
+	history.undo()
 
 
 func _refresh_water_if_needed() -> void:
@@ -351,7 +380,7 @@ func paint(id: int, x: float, z: float, brush_radius: float, power: float, delta
 		TerrainData.TOOL_PINCH:
 			amount = pinch_rate * power * delta * (-1.0 if reverse else 1.0)
 	var begin := Time.get_ticks_usec()
-	var result: Dictionary = terrain.apply_brush(real_tool, x, z, brush_radius, amount, flatten_height)
+	var result: Dictionary = terrain.apply_brush(real_tool, x, z, brush_radius, amount, flatten_height, stroke_originals if painting else null)
 	var after_edit := Time.get_ticks_usec()
 	terrain.upload_state()
 	var after_upload := Time.get_ticks_usec()
@@ -360,7 +389,10 @@ func paint(id: int, x: float, z: float, brush_radius: float, power: float, delta
 	last_edit_ms = float(after_edit - begin) / 1000.0
 	last_upload_ms = float(after_upload - after_edit) / 1000.0
 	last_follow_ms = float(after_follow - after_upload) / 1000.0
-	money = maxf(money - float(result["volume"]) * cost_per_cubic_metre, 0.0)
+	var spent := minf(money, float(result["volume"]) * cost_per_cubic_metre)
+	money -= spent
+	if painting:
+		stroke_spent += spent
 	var rect: Rect2i = result["rect"]
 	if rect.has_area():
 		stroke_rect = stroke_rect.merge(rect) if stroke_rect.has_area() else rect
@@ -384,7 +416,7 @@ func _sync_followers(center: Vector2, brush_radius: float, everywhere: bool) -> 
 			if not holds and not down:
 				# It falls downhill, or away from the brush on level ground.
 				var away := Vector2(normal.x, normal.z)
-				_topple(node, away if away.length() > 0.05 else Vector2(p.x - center.x, p.z - center.y), false)
+				_topple(node, away if away.length() > 0.05 else Vector2(p.x - center.x, p.z - center.y))
 			elif holds and down:
 				_regrow(node)
 
@@ -414,7 +446,7 @@ func run_test(main: Node3D, dir: String) -> void:
 	for step: Dictionary in steps:
 		await _test_step(dir, step)
 	# Undo everything, then confirm the terrain matches its starting state.
-	while not undo_stack.is_empty():
+	while history.count() > 0:
 		undo()
 	var mismatch := 0.0
 	for i in terrain.heights.size():
@@ -463,7 +495,7 @@ func _test_input(dir: String) -> void:
 	for i in saved.size():
 		changed = maxf(changed, terrain.heights[i] - saved[i])
 	print("BRUSH input: tool raise %s, radius %.1f to %.1f, hit %s, ring %s, raised %.2f m, spent %d, undo entries %d" % [
-		tool == TerrainData.TOOL_RAISE, radius_before, radius, has_hit, ring.visible, changed, int(money_before - money), undo_stack.size(),
+		tool == TerrainData.TOOL_RAISE, radius_before, radius, has_hit, ring.visible, changed, int(money_before - money), history.count(),
 	])
 	var undo_key := InputEventKey.new()
 	undo_key.physical_keycode = KEY_Z

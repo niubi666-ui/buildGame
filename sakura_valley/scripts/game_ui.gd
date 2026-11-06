@@ -14,8 +14,8 @@ const SLIDER_AREA_WIDTH := 262.0
 const HELP_ROWS: Array[Array] = [
 	["左键", "涂抹地形 / 建造"], ["Shift", "反向涂抹"], ["Ctrl + 滚轮", "笔刷大小"], ["Alt + 滚轮", "笔刷力度"],
 	["Z X N M", "小山丘 / 土堤 / 大坑 / 隧道"], ["点击隧道口", "查看或填平隧道"],
-	["Ctrl + Z", "撤销"], ["T", "放置防御塔"], ["点击塔", "查看攻击范围"], ["V", "用鼠标瞄准"],
-	["方向键", "微调炮口"], ["Esc", "取消或关闭"], ["B", "开始战斗"], ["1 - 5", "战斗速度"], ["右键拖动", "旋转镜头"],
+	["Ctrl + Z", "撤销上一步摆放操作"], ["T", "放置防御塔"], ["点击塔", "查看攻击范围"], ["V", "用鼠标瞄准"],
+	["方向键", "微调炮口"], ["Esc", "取消或关闭"], ["B", "开始战斗"], ["空格", "暂停 / 继续战斗"], ["1 - 5", "战斗速度"], ["右键拖动", "旋转镜头"],
 	["滚轮", "缩放镜头"], ["W A S D", "移动镜头"], ["C", "切换视角"], ["F1", "操作说明"], ["F2", "隐藏界面"], ["F3", "性能详情"],
 ]
 
@@ -78,6 +78,7 @@ var build_contents: VBoxContainer
 ## Per tower type: its "button", "price" label and "contents".
 var build_buttons := {}
 var battle_dock: VBoxContainer
+var pause_button: Button
 var speed_buttons: Array[Button] = []
 var start_button: Button
 var tower_card: PanelContainer
@@ -542,7 +543,6 @@ func _build_tool_dock() -> void:
 	undo_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	undo_button.custom_minimum_size = Vector2(66.0, 76.0)
 	undo_button.pressed.connect(func() -> void: brush.undo())
-	_tip(undo_button, "撤销上一笔，并退回花费  Ctrl + Z")
 	row.add_child(undo_button)
 
 
@@ -667,6 +667,12 @@ func _build_battle_dock() -> void:
 	battle_dock.add_child(speed_pill)
 	var row := _hbox(2)
 	speed_pill.add_child(row)
+	pause_button = _button("暂停", "SegmentButton")
+	pause_button.toggle_mode = true
+	pause_button.custom_minimum_size = Vector2(52.0, 34.0)
+	pause_button.pressed.connect(paths.toggle_battle_pause)
+	_tip(pause_button, "空格暂停或继续战斗，暂停时可以建塔、升级和拆塔")
+	row.add_child(pause_button)
 	var speed_icon := _icon("speed", 22.0, Kit.INK_SOFT)
 	row.add_child(speed_icon)
 	var gap := Control.new()
@@ -749,8 +755,12 @@ func _build_tower_card() -> void:
 	pitch_value.custom_minimum_size = Vector2(48.0, 0.0)
 	for slider: HSlider in [yaw_slider, pitch_slider]:
 		slider.value_changed.connect(_on_aim_slider)
-		slider.drag_started.connect(func() -> void: aim_dragging = true)
-		slider.drag_ended.connect(func(_changed: bool) -> void: aim_dragging = false)
+		slider.drag_started.connect(func() -> void:
+			aim_dragging = true
+			towers.begin_slider_aim())
+		slider.drag_ended.connect(func(changed: bool) -> void:
+			aim_dragging = false
+			towers.end_slider_aim(changed))
 	aim_button = _wide_button("用鼠标瞄准", "Button", "aim", Kit.INK, 42.0)[0]
 	aim_button.pressed.connect(func() -> void: towers.start_aiming())
 	_badge(aim_button, "V")
@@ -1044,6 +1054,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	match event.physical_keycode:
+		KEY_SPACE:
+			if paths.phase != paths.Phase.BATTLE or paths.outcome != "":
+				return
+			paths.toggle_battle_pause()
 		KEY_F1:
 			toggle_help()
 		KEY_F2:
@@ -1099,11 +1113,15 @@ func _sync_home() -> void:
 
 func _sync_phase() -> void:
 	var battle: bool = paths.phase == paths.Phase.BATTLE
+	pause_button.visible = battle and paths.outcome == ""
+	pause_button.set_pressed_no_signal(paths.battle_paused)
+	pause_button.text = "继续" if paths.battle_paused else "暂停"
 	if battle:
 		var total: int = maxi(paths.wave_total, 1)
 		var kills: int = paths.core.kills()
 		var arrived: int = paths.core.arrived()
-		phase_title.text = "第 %d 波" % paths.wave
+		var title := "第 %d 波" % paths.wave
+		phase_title.text = title + " · 已暂停" if paths.battle_paused else title
 		phase_sub.text = "击杀 %d · 抵达家园 %d · 还剩 %d" % [kills, arrived, paths.core.active()]
 		phase_bar.value = float(kills + arrived) / float(total)
 	else:
@@ -1291,7 +1309,7 @@ func _sync_tools() -> void:
 		tool_buttons[id].set_pressed_no_signal(sculpting and id == brush.tool)
 	for id: String in preset_buttons:
 		preset_buttons[id].set_pressed_no_signal(tools.active_id == id)
-	undo_button.disabled = brush.undo_stack.is_empty() or brush.ground_busy
+	undo_button.disabled = brush.history.count() == 0 or brush.locked or brush.ground_busy or brush.painting
 	radius_slider.set_value_no_signal(brush.radius)
 	radius_value.text = str(int(round(brush.effective_radius())))
 	strength_slider.set_value_no_signal(brush.strength)
@@ -1311,6 +1329,8 @@ func _sync_tools() -> void:
 
 func _sync_hint() -> void:
 	var main_text: String = tip_text
+	if undo_button.is_hovered():
+		main_text = "撤销%s  Ctrl + Z" % brush.history.last_label() if brush.history.count() > 0 else "当前没有可撤销的操作"
 	var sub_text := ""
 	var dot := Kit.SAKURA
 	if brush.painting and brush.money <= 0.0:

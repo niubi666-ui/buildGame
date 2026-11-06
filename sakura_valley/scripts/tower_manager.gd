@@ -77,6 +77,9 @@ var aim_saved_yaw := 0.0
 var aim_saved_pitch := 0.0
 var aim_anchor := Vector2.ZERO
 var aim_following := false
+var slider_tower := {}
+var slider_start := Vector2.ZERO
+var slider_interrupted := false
 
 var cone_view: MeshInstance3D
 var range_shown := false
@@ -130,6 +133,8 @@ func setup(data, view_camera: Camera3D, brush_node: Node, path_node: Node, mater
 	_build_ghost()
 	brush.terrain_changed.connect(_on_terrain_changed)
 	brush.tool_selected.connect(_on_tool_selected)
+	brush.history.before_undo.connect(cancel_pending_aim)
+	brush.history.before_commit.connect(commit_pending_aim)
 	paths.battle_ended.connect(_on_battle_ended)
 
 
@@ -281,6 +286,8 @@ static func aimable(spec: Dictionary) -> bool:
 
 
 func _set_mode(value: Mode) -> void:
+	if mode == Mode.AIMING and value != Mode.AIMING and not selected.is_empty():
+		_record_aim(selected, Vector2(aim_saved_yaw, aim_saved_pitch))
 	mode = value
 	brush.paused = mode != Mode.IDLE
 	ghost.visible = false
@@ -360,6 +367,7 @@ func _handle_key(event: InputEventKey) -> void:
 		KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN:
 			if selected.is_empty() or not aimable(selected["spec"]):
 				return
+			var before := Vector2(selected["yaw"], selected["pitch"])
 			var yaw: float = selected["yaw"]
 			var pitch: float = selected["pitch"]
 			if event.physical_keycode == KEY_LEFT:
@@ -371,6 +379,8 @@ func _handle_key(event: InputEventKey) -> void:
 			else:
 				pitch -= NUDGE
 			_set_tower_aim(selected, yaw, clampf(pitch, -PI * 0.5, PI * 0.5))
+			if mode != Mode.AIMING and slider_tower.is_empty():
+				_record_aim(selected, before)
 		_:
 			handled = false
 	if handled:
@@ -453,9 +463,12 @@ func check_spot(x: float, z: float, type := "") -> Dictionary:
 
 
 func place_at(x: float, z: float, yaw: float, pitch: float, then_aim := true) -> bool:
+	if brush.ground_busy or brush.painting:
+		return false
 	var check := check_spot(x, z)
 	if not check["ok"] or brush.money < float(check["cost"]):
 		return false
+	commit_pending_aim()
 	brush.money -= float(check["cost"])
 	var tower := _create_tower(check, yaw, pitch)
 	tower["plane"] = check["plane"]
@@ -463,11 +476,14 @@ func place_at(x: float, z: float, yaw: float, pitch: float, then_aim := true) ->
 	towers.append(tower)
 	var center: Vector3 = tower["center"]
 	terrain.add_ground_lock(center.x, center.z)
+	var pad_before := PackedFloat32Array()
 	# Terrain stays fixed during a battle, so a tower built then settles in when the wave ends.
 	if paths.phase == paths.Phase.BUILD:
-		_shape_pad(tower)
-	brush.clear_undo()
-	_clear_trees(tower)
+		pad_before = _shape_pad(tower)
+	var cleared_trees := _clear_trees(tower)
+	brush.history.record("建造" + String(tower["spec"]["name"]),
+			_undo_build.bind(tower, float(check["cost"]), cleared_trees, pad_before),
+			brush.discard_cleared_trees.bind(cleared_trees))
 	if paths.phase == paths.Phase.BUILD:
 		_after_ground_change(x, z)
 	_set_mode(Mode.IDLE)
@@ -478,16 +494,20 @@ func place_at(x: float, z: float, yaw: float, pitch: float, then_aim := true) ->
 
 
 ## The tower's own lock has to lift for this. Other towers keep theirs, so their ground stays put.
-func _shape_pad(tower: Dictionary) -> void:
+func _shape_pad(tower: Dictionary) -> PackedFloat32Array:
 	var center: Vector3 = tower["center"]
 	terrain.remove_ground_lock(center.x, center.z)
 	tower["patch"] = terrain.shape_tower_pad(tower["plane"], PAD_INNER, PAD_OUTER)
+	var starts: PackedFloat32Array = tower["patch"]["starts"]
+	tower["patch"].erase("starts")
 	terrain.add_ground_lock(center.x, center.z)
 	terrain.upload_state()
+	return starts
 
 
 ## Applies ground changes held back during the battle, before the route is worked out again.
 func _on_battle_ended() -> void:
+	commit_pending_aim()
 	for patch in pending_removals:
 		terrain.remove_tower_pad(patch)
 	pending_removals.clear()
@@ -499,12 +519,20 @@ func _on_battle_ended() -> void:
 	brush._sync_followers(Vector2.ZERO, 0.0, true)
 
 
-func _clear_trees(tower: Dictionary) -> void:
+func _clear_trees(tower: Dictionary) -> Array:
+	var cleared := []
 	var center: Vector3 = tower["center"]
 	var normal: Vector3 = tower["normal"]
 	for along: float in [0.0, TOWER_HEIGHT * 0.5, TOWER_HEIGHT]:
 		var point := center + normal * along
-		brush.clear_trees_near(point.x, point.z, FOOTPRINT + 2.5)
+		cleared.append_array(brush.clear_trees_near(point.x, point.z, FOOTPRINT + 2.5))
+	return cleared
+
+
+func _undo_build(tower: Dictionary, cost: float, trees: Array, pad_before: PackedFloat32Array) -> void:
+	_remove_live_tower(tower, false, pad_before)
+	brush.money += cost
+	brush.restore_cleared_trees(trees)
 
 
 ## During battle the route stays as it was, and is worked out afresh when the wave ends.
@@ -512,7 +540,7 @@ func _after_ground_change(x: float, z: float) -> void:
 	brush._refresh_water_if_needed()
 	brush._sync_followers(Vector2(x, z), PAD_OUTER + 2.0, false)
 	if paths.phase == paths.Phase.BUILD:
-		paths.replan()
+		brush.terrain_changed.emit()
 
 
 func _create_tower(check: Dictionary, yaw: float, pitch: float) -> Dictionary:
@@ -628,7 +656,7 @@ func next_upgrades(tower: Dictionary) -> Array:
 
 ## Buys an upgrade for the selected tower. Works in battle too, like building and selling.
 func upgrade_selected(id: String) -> bool:
-	if selected.is_empty():
+	if selected.is_empty() or brush.ground_busy or brush.painting:
 		return false
 	var tower := selected
 	for option: Dictionary in next_upgrades(tower):
@@ -637,6 +665,11 @@ func upgrade_selected(id: String) -> bool:
 		var cost := float(option["cost"])
 		if brush.money < cost:
 			return false
+		commit_pending_aim()
+		var revert := Callable()
+		if brush.history.enabled:
+			var timer: float = core.tower_timer(tower["id"])
+			revert = _undo_upgrade.bind(tower, tower["path"].duplicate(), tower["stars"], tower["paid"], timer, cost)
 		brush.money -= cost
 		tower["paid"] = int(tower["paid"]) + int(cost)
 		if id == "star":
@@ -644,12 +677,24 @@ func upgrade_selected(id: String) -> bool:
 		else:
 			tower["path"].append(id)
 		_apply_spec(tower)
+		if revert.is_valid():
+			brush.history.record("升级" + String(option["name"]), revert)
 		_refresh_selected()
-		var apex: Vector3 = tower["apex"]
 		paths.fx.upgraded(tower["center"])
 		upgraded.emit(tower, option["name"])
 		return true
 	return false
+
+
+func _undo_upgrade(tower: Dictionary, old_path: Array, stars: int, paid: int, timer: float, cost: float) -> void:
+	tower["path"] = old_path
+	tower["stars"] = stars
+	tower["paid"] = paid
+	_apply_spec(tower)
+	core.restore_tower_timer(tower["id"], timer)
+	brush.money += cost
+	if tower == selected:
+		_refresh_selected()
 
 
 ## Gives the core and the model everything the tower's upgrades add up to.
@@ -689,6 +734,8 @@ func _set_tower_aim(tower: Dictionary, yaw: float, pitch: float) -> void:
 
 
 func select(tower: Dictionary) -> void:
+	if tower != selected:
+		commit_pending_aim()
 	selected = tower
 	brush.ring_hidden = true
 	_refresh_selected()
@@ -696,8 +743,7 @@ func select(tower: Dictionary) -> void:
 
 
 func deselect() -> void:
-	if not selected.is_empty() and mode == Mode.AIMING:
-		_set_mode(Mode.IDLE)
+	commit_pending_aim()
 	selected = {}
 	brush.ring_hidden = false
 	if mode != Mode.PLACING:
@@ -737,16 +783,64 @@ func selected_info() -> Dictionary:
 
 ## Used by the aim sliders. Taking the sliders stops any aiming with the mouse.
 func aim_selected_degrees(yaw_degrees: float, pitch_degrees: float) -> void:
-	if selected.is_empty():
+	if slider_interrupted or selected.is_empty() or not aimable(selected["spec"]):
 		return
 	if mode == Mode.AIMING:
 		_set_mode(Mode.IDLE)
+	var before := Vector2(selected["yaw"], selected["pitch"])
 	_set_tower_aim(selected, deg_to_rad(yaw_degrees), deg_to_rad(pitch_degrees))
+	if slider_tower.is_empty():
+		_record_aim(selected, before)
+
+
+func begin_slider_aim() -> void:
+	commit_pending_aim()
+	slider_interrupted = false
+	if not selected.is_empty():
+		slider_tower = selected
+		slider_start = Vector2(selected["yaw"], selected["pitch"])
+
+
+func end_slider_aim(_changed: bool) -> void:
+	slider_interrupted = false
+	if not slider_tower.is_empty():
+		_record_aim(slider_tower, slider_start)
+		slider_tower = {}
+	elif not selected.is_empty():
+		aim_changed.emit()
+
+
+func commit_pending_aim() -> void:
+	if mode == Mode.AIMING:
+		_set_mode(Mode.IDLE)
+	if not slider_tower.is_empty():
+		_record_aim(slider_tower, slider_start)
+		slider_tower = {}
+		slider_interrupted = true
+
+
+func cancel_pending_aim() -> void:
+	if mode == Mode.AIMING and not selected.is_empty():
+		_set_tower_aim(selected, aim_saved_yaw, aim_saved_pitch)
+		_set_mode(Mode.IDLE)
+	if not slider_tower.is_empty():
+		_set_tower_aim(slider_tower, slider_start.x, slider_start.y)
+		slider_tower = {}
+		slider_interrupted = true
+
+
+func _record_aim(tower: Dictionary, before: Vector2) -> void:
+	if not brush.history.enabled:
+		return
+	var after := Vector2(tower["yaw"], tower["pitch"])
+	if not is_zero_approx(angle_difference(before.x, after.x)) or not is_equal_approx(before.y, after.y):
+		brush.history.record("调整炮口方向", _set_tower_aim.bind(tower, before.x, before.y))
 
 
 func start_aiming() -> void:
-	if selected.is_empty() or not aimable(selected["spec"]):
+	if mode == Mode.AIMING or selected.is_empty() or not aimable(selected["spec"]):
 		return
+	commit_pending_aim()
 	aim_saved_yaw = selected["yaw"]
 	aim_saved_pitch = selected["pitch"]
 	_set_mode(Mode.AIMING)
@@ -784,30 +878,70 @@ func _covered(apex: Vector3, aim: Vector3, spec := {}) -> float:
 
 
 func sell_selected() -> void:
-	if selected.is_empty():
+	if selected.is_empty() or brush.ground_busy or brush.painting:
 		return
-	if mode == Mode.AIMING:
-		_set_mode(Mode.IDLE)
 	var tower := selected
-	deselect()
-	brush.money += floorf(float(tower["paid"]) * refund_rate)
-	core.remove_tower(tower["id"])
+	var refund := floorf(float(tower["paid"]) * refund_rate)
+	var slot := towers.find(tower)
+	var park: bool = brush.history.enabled
+	var pad_before := PackedFloat32Array()
+	if park and not tower["patch"].is_empty():
+		pad_before = terrain.capture_patch_heights(tower["patch"])
+	_remove_live_tower(tower, park)
+	brush.money += refund
+	if park:
+		brush.history.record("拆除" + String(tower["spec"]["name"]),
+				_undo_sale.bind(tower, slot, refund, pad_before), _discard_tower.bind(tower))
+
+
+func _remove_live_tower(tower: Dictionary, park: bool, pad_before := PackedFloat32Array()) -> void:
+	if tower == selected:
+		deselect()
+	if park:
+		core.set_tower_parked(tower["id"], 1)
+		tower["node"].hide()
+	else:
+		_discard_tower(tower)
 	paths.fx.tower_styles.erase(tower["id"])
 	towers.erase(tower)
 	var center: Vector3 = tower["center"]
 	terrain.remove_ground_lock(center.x, center.z)
 	if paths.phase == paths.Phase.BUILD:
-		if not tower["patch"].is_empty():
+		if not pad_before.is_empty():
+			terrain.restore_cells(tower["patch"]["indices"], pad_before, tower["patch"]["rect"])
+		elif not tower["patch"].is_empty():
 			terrain.remove_tower_pad(tower["patch"])
 		terrain.upload_state()
 		_after_ground_change(center.x, center.z)
 	elif not tower["patch"].is_empty():
 		pending_removals.append(tower["patch"])
+	last_key = PackedFloat32Array()
+
+
+func _undo_sale(tower: Dictionary, slot: int, refund: float, pad_before: PackedFloat32Array) -> void:
+	brush.money -= refund
+	core.set_tower_parked(tower["id"], 0)
+	towers.insert(slot, tower)
+	tower["node"].show()
+	paths.fx.tower_styles[tower["id"]] = String(tower["spec"].get("model", "cannon"))
+	var center: Vector3 = tower["center"]
+	if not pad_before.is_empty():
+		terrain.restore_cells(tower["patch"]["indices"], pad_before, tower["patch"]["rect"])
+		terrain.upload_state()
+	terrain.add_ground_lock(center.x, center.z)
+	_after_ground_change(center.x, center.z)
+	last_key = PackedFloat32Array()
+
+
+func _discard_tower(tower: Dictionary) -> void:
+	kicking.erase(tower)
+	core.remove_tower(tower["id"])
 	tower["node"].queue_free()
 
 
 func _process(delta: float) -> void:
-	_update_kicks(delta * paths.speed)
+	if not paths.battle_paused:
+		_update_kicks(delta * paths.speed)
 	match mode:
 		Mode.PLACING:
 			_update_placing()

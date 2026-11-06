@@ -173,6 +173,9 @@ enum Method {
 	M_KILLS,
 	M_ADD_TOWER,
 	M_REMOVE_TOWER,
+	M_SET_TOWER_PARKED,
+	M_TOWER_TIMER,
+	M_RESTORE_TOWER_TIMER,
 	M_SET_TOWER_AIM,
 	M_TOWER_KILLS,
 	M_VISIBILITY,
@@ -323,6 +326,15 @@ void method_call(void *userdata, GDExtensionClassInstancePtr instance, const GDE
 			break;
 		case M_REMOVE_TOWER:
 			world->remove_tower(static_cast<int>(read_number(args[0])));
+			break;
+		case M_SET_TOWER_PARKED:
+			world->set_tower_parked(static_cast<int>(read_number(args[0])), read_number(args[1]) != 0);
+			break;
+		case M_TOWER_TIMER:
+			return_float(ret, world->tower_timer(static_cast<int>(read_number(args[0]))));
+			break;
+		case M_RESTORE_TOWER_TIMER:
+			world->restore_tower_timer(static_cast<int>(read_number(args[0])), static_cast<float>(read_number(args[1])));
 			break;
 		case M_SET_TOWER_AIM:
 			world->set_tower_aim(static_cast<int>(read_number(args[0])), static_cast<float>(read_number(args[1])), static_cast<float>(read_number(args[2])), static_cast<float>(read_number(args[3])));
@@ -489,6 +501,9 @@ void initialize(void *, GDExtensionInitializationLevel level) {
 	add_method("kills", M_KILLS, {}, INT);
 	add_method("add_tower", M_ADD_TOWER, { FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, INT }, INT);
 	add_method("remove_tower", M_REMOVE_TOWER, { INT }, NIL);
+	add_method("set_tower_parked", M_SET_TOWER_PARKED, { INT, INT }, NIL);
+	add_method("tower_timer", M_TOWER_TIMER, { INT }, FLOAT);
+	add_method("restore_tower_timer", M_RESTORE_TOWER_TIMER, { INT, FLOAT }, NIL);
 	add_method("set_tower_aim", M_SET_TOWER_AIM, { INT, FLOAT, FLOAT, FLOAT }, NIL);
 	add_method("tower_kills", M_TOWER_KILLS, { INT }, INT);
 	add_method("visibility_map", M_VISIBILITY, { FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT, FLOAT }, BYTES);

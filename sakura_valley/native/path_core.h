@@ -195,6 +195,10 @@ public:
 
 	int add_tower(const Cone &cone, float damage, float cooldown, float splash, int splash_targets);
 	void remove_tower(int id);
+	// Sold during preparation. Keep the original tower until the sale is undone or committed.
+	void set_tower_parked(int id, bool parked);
+	float tower_timer(int id) const;
+	void restore_tower_timer(int id, float timer);
 	void set_tower_aim(int id, float dx, float dy, float dz);
 	int tower_kills(int id) const;
 	// STAT_COUNT floats: half angle in radians, range, damage, cooldown, splash radius, splash targets,
@@ -290,6 +294,7 @@ private:
 	std::vector<float> deaths_;
 	std::vector<std::pair<float, int>> blast_hits_;
 	std::vector<Tower> towers_;
+	std::vector<Tower> parked_towers_;
 	std::vector<Shot> shots_;
 	std::vector<Fire> fires_;
 	int next_tower_id_ = 1;

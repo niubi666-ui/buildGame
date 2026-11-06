@@ -2,14 +2,14 @@
 
 写给接手继续开发的 AI。动手前先读完“必须遵守”和“容易踩的坑”。
 
-最后更新：2026-11-05。文中的测试结果都是这一天跑出来的，改过代码或数值后要重新跑。
+更新于 2026-11-06。测试记录保留了运行日期和硬件，改过玩法或数值后请重跑对应测试。
 
 ## 项目是什么
 
 3D 塔防游戏，玩家扮演上帝，花钱改变地形。敌人按地形选路：步行、绕路、搭桥、划船、爬坡、穿隧道。每波分两个阶段：
 
-- **摆放阶段**：可以改地形、放塔、拆塔。
-- **战斗阶段**：地形锁定，但还能放塔、拆塔。
+- **摆放阶段**：可以改地形、放塔、升级和拆塔。按 Ctrl+Z 或点工具栏的撤销按钮，逐步撤回最近 20 次操作。
+- **战斗阶段**：地形锁定。按空格或点倍速栏的“暂停”可停住敌人、炮弹和攻击冷却，此时可以建塔、瞄准、升级和拆塔。点“继续”或再按空格，按当前选中的倍速继续这一波。
 
 核心乐趣是“靠改地形操纵敌人路线”。现在有五关，开游戏先进选关界面。
 
@@ -44,7 +44,7 @@
 - 只有白天光照，不做黄昏和夜晚。
 - 树干保持深色。丁达尔光不能强到晃眼。
 - 界面美术柔和舒服。
-- 帧率保持 70 FPS 以上。
+- 目标玩家使用 RTX 2060 及以上显卡，原定帧率目标为 70 FPS 以上。本机只用于确认游戏能正常操作和完成流程。
 - 数值放配置文件，注意架构。
 - 如果调用 Codex，用 Astra 模型（`gpt-6-astra`），思考等级 max。
 
@@ -58,15 +58,17 @@
 操作安全：
 
 - **不要关闭不是你启动的 Godot 进程。** 用户同时开着别的 Godot 项目。以前因为按进程名全部关闭，可能打断过用户的测试。
-- 这个项目**不是 Git 仓库**，没有历史可退。大改之前自己先备份，用户没要求就不要初始化仓库或提交。
+- Git 仓库根目录在 `sakura_valley` 的上一级。本次接手的版本是 `master` 分支的 `371838d`。改动前先看工作区状态，按用户要求提交或推送。
 - 编译 `native` 前先关掉本项目的游戏，它会锁住 DLL。
 
 ## 环境
 
-- Godot 4.7.2，Forward+：`E:\GoDot\Godot_v4.7.2-stable_win64\`。带控制台的版本是 `Godot_v4.7.2-stable_win64_console.exe`。
+- **换电脑接手**。在 Windows x64 安装 Godot 4.7.2，在项目管理器中导入仓库里的 `sakura_valley/project.godot`。等首次导入完成后按 F5，从选关界面启动游戏。
+- 仓库随附 `bin/pathcore.dll`。运行游戏和编辑 GDScript 直接使用随附的 DLL；修改 `native/` 下的 C++ 后，才需要安装 Visual Studio 的桌面 C++ 工作负载并重新编译。
+- Godot 4.7.2，Forward+。在 Windows 双击 `start_game.cmd` 进入选关。脚本支持本机的 `E:\GoDot\`、原来的版本子目录和 PATH；其他安装位置可用环境变量 `GODOT_EXE` 指定可执行文件的完整路径。
 - 寻路和战斗用 C++ 写成 GDExtension，直接用 C API，没有 godot-cpp，也不需要 Python。
-- 编译器是 VS 2022，运行 `native\build.cmd`，产物是 `bin\pathcore.dll`。
-- 显卡是 RTX 4060 笔记本版。其他程序可能占用显卡，判断帧率前先看 `nvidia-smi`。
+- 运行 `native\build.cmd` 会通过 vswhere 查找已安装的 Visual Studio x64 C++ 工具，并生成 `bin\pathcore.dll`。
+- 11 月 5 日的帧率记录来自 RTX 4060 笔记本版。11 月 6 日本机测试时，Godot 实际选用了 Intel Iris Xe。
 - 窗口基准是 1920×1080，拉伸模式 `canvas_items`、`expand`。
 
 ## 目录
@@ -82,7 +84,8 @@
 | `scripts/maps/` | 地图生成：`map_shape.gd` 是接口；`twin_roads_shape.gd` 第一关；`composed_shape.gd` 用关卡文件里的地貌列表拼地图（第二到第五关）；`valley_shape.gd` 试验场 |
 | `scripts/level_check.gd` | 看一关的路线、截图、无塔试跑、筑坝试验 |
 | `scripts/terrain_data.gd` | 高度图、水、预设和隧道的地形计算 |
-| `scripts/brush_controller.gd` | 笔刷、金币、撤销、树和灯笼跟随地面 |
+| `scripts/brush_controller.gd` | 笔刷、金币、树和灯笼跟随地面 |
+| `scripts/build_history.gd` | 当前摆放阶段共用的撤销记录，管理顺序、步数和过期资源 |
 | `scripts/terrain_tools.gd` | 预设和隧道的操作流程 |
 | `scripts/terrain_feel.gd` | 扬尘、隆隆声、镜头抖动 |
 | `scripts/path_manager.gd` | 波次、路线预告、胜负、敌人和炮弹显示 |
@@ -98,6 +101,10 @@
 | `screenshots/level1/` | 第一关最新截图 |
 
 ## 关键设计
+
+**摆放阶段撤销**。地形笔刷和预设、挖填隧道、建塔、升级、升星、瞄准和拆塔共用一份历史。连续画一笔或拖动一次瞄准滑块各算一步。开战时清空历史，下一波摆放时重新记录。步数由 `data/terrain_tools.json` 的 `brush.max_undo` 控制。
+
+新增陷阱或附魔时，在该功能成功修改状态后调用 `history.record(名称, 撤销回调, 可选的释放回调)`。由该功能保存受影响的数据和实际收付金额，撤销时只反向结算这一笔。摆放阶段拆除的塔会保留原对象，直到撤销、开战或该记录被淘汰。
 
 **地形**：513×513 的高度图，覆盖 320 米。状态存在一张 GPU 贴图里，地形、草、石头都读它。寻路用隔一个点取一个的 257×257 网格，每格 1.25 米。
 
@@ -135,52 +142,64 @@
 
 ## 怎么运行和测试
 
-控制台版路径较长，下面记作 `$g`：
+在含有 `project.godot` 的 `sakura_valley` 目录打开 PowerShell。以下命令使用本机的控制台版 Godot：
 
 ```powershell
-$g = "E:\GoDot\Godot_v4.7.2-stable_win64\Godot_v4.7.2-stable_win64_console.exe"
+$g = "E:\GoDot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
-重跑八种打法（无画面，改数值后必跑）：
+撤销回归覆盖塔和地形交错操作、隧道、金币、步数上限及跨波次行为。固定时间步使拖动和动画可重复：
 
 ```powershell
-& $g --headless --path E:\buildGame\sakura_valley -- --balance=all
+& $g --headless --fixed-fps 60 --path . --script res://scripts/undo_test.gd
+```
+
+暂停回归覆盖出兵、移动、炮弹、攻击冷却、暂停期间的塔操作和恢复倍速。
+
+```powershell
+& $g --headless --path . --script res://scripts/pause_test.gd
+```
+
+重跑第一关的 23 种打法（无画面，改数值后必跑）：
+
+```powershell
+& $g --headless --path . -- --balance=all
 ```
 
 第一关全流程（模拟真实鼠标键盘，会截图到指定目录）：
 
 ```powershell
-& $g --path E:\buildGame\sakura_valley -- --leveltest=D:\Temp\level
+& $g --path . -- --leveltest=D:\Temp\level
 ```
 
 失败和“再来一次”：
 
 ```powershell
-& $g --path E:\buildGame\sakura_valley -- --leveltest=D:\Temp\lose --lose
+& $g --path . -- --leveltest=D:\Temp\lose --lose
 ```
 
 旧测试要加 `--level=sandbox`，把最后一个参数换成 `--brushtest=目录`、`--pathtest=目录`、`--towertest=目录`、`--uitest=目录` 或 `--uilayout=目录`：
 
 ```powershell
-& $g --path E:\buildGame\sakura_valley -- --level=sandbox --uitest=D:\Temp\ui
+& $g --path . -- --level=sandbox --uitest=D:\Temp\ui
 ```
 
 土堤放偏的容错扫描（西路 5 个角度 × 5 个前后位置 × 11 个左右位置，看有几个能把西路敌人赶到东路）：
 
 ```powershell
-& $g --headless --path E:\buildGame\sakura_valley -- --ridgesweep
+& $g --headless --path . -- --ridgesweep
 ```
 
 其他关的平衡测试（打法在 `data/levels/level_0X_balance.json`）：
 
 ```powershell
-& $g --headless --path E:\buildGame\sakura_valley -- --level=level_03 --balance=all
+& $g --headless --path . -- --level=level_03 --balance=all
 ```
 
 看一关：每个入口每个兵种走哪条路、多少秒、怎么走，再给每个镜头截图（目录留空就只打印路线）：
 
 ```powershell
-& $g --path E:\buildGame\sakura_valley -- --level=level_02 --levelcheck=D:\Temp\lv\l2
+& $g --path . -- --level=level_02 --levelcheck=D:\Temp\lv\l2
 ```
 
 在 `--levelcheck=` 后面再加：`--play` 不放塔、家园不会倒，把每一波都跑完，看有没有人卡住；`--dam=40,-110` 在那里堆一个圆土包再看路线和水；`--uishot=文件` 带界面截一张开局图。选关界面截图：`--menushot=文件`（不加 `--level`）。
@@ -210,6 +229,12 @@ $g = "E:\GoDot\Godot_v4.7.2-stable_win64\Godot_v4.7.2-stable_win64_console.exe"
 - **流动的水**：`flowing_water` 打开后，`refresh_water` 只从水源格子灌水，不再从所有一开始有水的格子灌，所以筑坝能让下游的河干掉。只有第四关打开，第一关和试验场不变。
 
 ## 最近一次测试结果
+
+- 2026-11-06，在 Windows x64、Godot 4.7.2 上复验了提交 `371838d` 的游戏内容：
+  - 五关共跑了 39 种打法（各关 23、4、5、4、3 种）。25 种有胜负要求，结果全部符合；另外 14 种的 `goal` 是 `any`，只记录结果。第一关堵西路守东路剩 6/12 血，开隧道守出口剩 11/12 血，封两路失败。
+  - 实际渲染了五张选关卡片。第一关模拟键鼠从开局打到胜利结算，82 项检查通过，覆盖筑堤改道、撤销、灌水、隧道、建塔升级和三波战斗。测试使用独立存档。
+  - 在临时副本运行 `native\build.cmd` 后，用新编译的 DLL 重跑“堵西路守东路”，同样剩 6/12 血。
+  - Intel Iris Xe，1920×1080，Forward+。第一关策略视角、隐藏界面的静态渲染测试约 11 FPS（平均帧耗时 88.3 ms，其中 GPU 84.5 ms）。带界面的八倍速战斗三波分别为 8、9、10 FPS，低于 70 FPS 目标。
 
 - 2026-11-05 加入攻击特效后：
   - 第一关平衡测试仍是 23/23，关卡测试、塔测试、界面测试都是 0 失败。
@@ -298,6 +323,5 @@ $g = "E:\GoDot\Godot_v4.7.2-stable_win64\Godot_v4.7.2-stable_win64_console.exe"
 
 1. 先让用户真人试玩五关，根据反馈调数值。第二到第五关的平衡只用机器人跑过，机器人一开局就把地形全改好，不会在两波之间补救。
 2. 查清上面那次偶发的按钮点击失败。
-3. 做第二关，用船队当主角，体现“水路反而是捷径”。
 
-`data/enemies.json` 里已经有船队（`boatman`），但第一关的波次还没用到。
+早期设想的“水路反而是捷径”现在可以在第四关樱川三角洲试玩，船队与上游筑坝都已进关。
