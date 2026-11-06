@@ -1,0 +1,92 @@
+{
+	"name": "第三关：浮空群岛",
+	"card": "七座浮岛悬在云海上，只靠细细的石梁相连。敌人分两路沿着岛链走；中央长岛两头伸出石指，工兵会从那里架桥抄近路。",
+	"goal_hint": "敌人顺着两条岛链分路而来；中央长岛两头的石指离邻岛很近，工兵会在那里架桥\n挖断一条石梁就能合兵，挖掉石指就能让工兵架不了桥",
+	"difficulty": 3,
+	"start_gold": 10000,
+	"home_hp": 12,
+	"map": {
+		"generator": "composed",
+		"seed": 307,
+		"ground": 26,
+		"outside": "void",
+		"void_floor": -12,
+		"void_level": 0.5,
+		"cloud_height": 1.0,
+		"detail": 0.4,
+		"home": { "x": 0, "z": 122, "goal_radius": 30, "height": 24.4 },
+		"features": [
+			{ "type": "mesa", "x": 0, "z": -126, "rx": 62, "rz": 30, "edge": 3, "rough": 4, "top": 30, "bumps": 1.2 },
+			{ "type": "mesa", "x": -98, "z": -52, "rx": 36, "rz": 31, "edge": 3, "rough": 5, "top": 27, "bumps": 1.5 },
+			{ "type": "mesa", "x": 98, "z": -52, "rx": 36, "rz": 31, "edge": 3, "rough": 5, "top": 29, "bumps": 1.5 },
+			{ "type": "mesa", "x": -94, "z": 48, "rx": 34, "rz": 31, "edge": 3, "rough": 5, "top": 25, "bumps": 1.5 },
+			{ "type": "mesa", "x": 94, "z": 48, "rx": 34, "rz": 31, "edge": 3, "rough": 5, "top": 27, "bumps": 1.5 },
+			{ "type": "mesa", "x": 0, "z": 122, "rx": 72, "rz": 42, "edge": 3, "rough": 4, "top": 24, "bumps": 1.0 },
+			{ "type": "ramp", "points": [[0, -22], [0, 10]], "levels": [28.5, 25.5], "width": 36, "edge": 3, "rough": 5, "bumps": 1.2 },
+			{ "type": "ramp", "points": [[0, -22], [0, -70]], "levels": [28.5, 29.6], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[0, 10], [0, 60]], "levels": [25.5, 24.4], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "hill", "x": 0, "z": -10, "radius": 16, "height": 9 },
+			{ "type": "ramp", "points": [[-40, -110], [-80, -74]], "levels": [30, 27], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[-98, -22], [-95, 18]], "levels": [27, 25], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[-72, 70], [-46, 96]], "levels": [25, 24], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[40, -110], [80, -74]], "levels": [30, 29], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[98, -22], [95, 18]], "levels": [29, 27], "width": 8, "edge": 2.5, "rough": 1.0 },
+			{ "type": "ramp", "points": [[72, 70], [46, 96]], "levels": [27, 24], "width": 8, "edge": 2.5, "rough": 1.0 }
+		],
+		"roads": [
+			{ "points": [[-30, -150], [-40, -110], [-80, -74], [-98, -50], [-98, -22], [-95, 18], [-90, 48], [-72, 70], [-46, 96], [-20, 112]] },
+			{ "points": [[30, -150], [40, -110], [80, -74], [98, -50], [98, -22], [95, 18], [90, 48], [72, 70], [46, 96], [20, 112]] }
+		],
+		"route_choices": [
+			{ "label": "走西岛链", "x": -98, "z": -2 },
+			{ "label": "走东岛链", "x": 98, "z": -2 },
+			{ "label": "走中央长岛", "x": 0, "z": 0 }
+		],
+		"route_labels": [
+			{ "label": "走西岛链", "x": -98, "z": -2, "radius": 30 },
+			{ "label": "走东岛链", "x": 98, "z": -2, "radius": 30 },
+			{ "label": "走中央长岛", "x": 0, "z": 0, "radius": 26 }
+		],
+		"no_build_zones": [
+			{ "x": -30, "z": -140, "radius": 24 },
+			{ "x": 30, "z": -140, "radius": 24 }
+		]
+	},
+	"gates": [
+		{ "id": "west", "name": "西岛", "x": -30, "z": -140 },
+		{ "id": "east", "name": "东岛", "x": 30, "z": -140 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 18, "interval": 1.1, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 18, "interval": 1.1, "delay": 0 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 24, "interval": 0.9, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 24, "interval": 0.9, "delay": 0 },
+				{ "type": "engineer", "gate": "west", "count": 6, "interval": 1.4, "delay": 4 },
+				{ "type": "engineer", "gate": "east", "count": 6, "interval": 1.4, "delay": 4 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 30, "interval": 0.85, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 30, "interval": 0.85, "delay": 0 },
+				{ "type": "engineer", "gate": "west", "count": 6, "interval": 1.2, "delay": 6 },
+				{ "type": "engineer", "gate": "east", "count": 6, "interval": 1.2, "delay": 6 },
+				{ "type": "climber", "gate": "west", "count": 5, "interval": 1.2, "delay": 10 },
+				{ "type": "climber", "gate": "east", "count": 5, "interval": 1.2, "delay": 10 }
+			]
+		}
+	],
+	"views": {
+		"strategy": { "target": [0, 24, 0], "yaw": 0.0, "pitch": -58, "dist": 480, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"north": { "target": [0, 26, -80], "yaw": 0.0, "pitch": -38, "dist": 200, "fov": 38, "far": 340, "near": 0, "amount": 0.04 },
+		"south": { "target": [0, 24, 70], "yaw": 0.0, "pitch": -38, "dist": 200, "fov": 38, "far": 340, "near": 0, "amount": 0.04 },
+		"low": { "target": [-60, 30, 20], "yaw": -0.7, "pitch": -10, "dist": 170, "fov": 42, "far": 320, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "north", "south", "low"]
+}

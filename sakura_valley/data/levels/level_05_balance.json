@@ -1,0 +1,7 @@
+{
+	"strategies": {
+		"a_three_gaps": { "goal": "any", "terrain": [], "zones": [[0, -40, 30], [45, 28, 30], [-45, 28, 30]], "alternate": true },
+		"b_seal_two": { "goal": "win", "terrain": [{ "raise": [61, 39, 10, 26] }, { "raise": [-61, 39, 10, 26] }], "zones": [[0, -45, 40]] },
+		"n_naive": { "goal": "lose", "terrain": [], "zones": [[0, -40, 30], [45, 28, 30], [-45, 28, 30]], "alternate": true, "naive": true }
+	}
+}

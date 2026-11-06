@@ -1,0 +1,9 @@
+{
+	"strategies": {
+		"a_split": { "goal": "any", "terrain": [], "zones": [[-98, 0, 60], [98, 0, 60]], "alternate": true },
+		"b_cut_west": { "goal": "any", "terrain": [{ "dig": [-60, -92, 10, -12] }], "zones": [[98, 0, 60]] },
+		"c_cut_west_and_fingers": { "goal": "win", "terrain": [{ "dig": [-48, -103, 10, -12] }, { "dig": [-62, -90, 10, -12] }, { "dig": [-76, -78, 10, -12] }, { "dig": [0, -60, 9, -12] }, { "dig": [0, 50, 14, -12] }], "zones": [[98, 0, 60]] },
+		"d_guard_home_north": { "goal": "any", "terrain": [], "zones": [[0, 92, 50]] },
+		"n_naive": { "goal": "lose", "terrain": [], "zones": [[-98, 0, 60], [98, 0, 60]], "alternate": true, "naive": true }
+	}
+}

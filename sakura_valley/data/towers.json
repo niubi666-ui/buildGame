@@ -1,0 +1,211 @@
+{
+	"normal": {
+		"name": "炮塔",
+		"key": "T",
+		"icon": "tower",
+		"tip": "炮塔：可以建在陡坡上，炮口能转到任意方向，范围伤害",
+		"model": "cannon",
+		"pivot_height": 10.6,
+		"cost": 1000,
+		"cone_degrees": 70,
+		"range": 55,
+		"damage": 14,
+		"cooldown": 0.7,
+		"splash_radius": 5.0,
+		"splash_targets": 5,
+		"upgrades": [
+			{
+				"id": "scatter",
+				"name": "散射炮",
+				"cost": 700,
+				"tip": "打人群：爆炸更大，一发能打中更多人。敌人越挤越强",
+				"change": { "damage": 16, "splash_radius": 7.0, "splash_targets": 8 },
+				"next": [
+					{
+						"id": "fan",
+						"name": "扇面炮",
+						"cost": 1100,
+						"tip": "射界张开到 110°，但射程变短。贴着敌人汇合的地方建",
+						"change": { "cone_degrees": 110, "range": 42, "splash_targets": 10 }
+					},
+					{
+						"id": "blaze",
+						"name": "焚地炮",
+						"cost": 1100,
+						"tip": "落点燃起火圈。敌人在上坡、爬墙、排队时走得慢，烧得更久",
+						"change": { "fire_seconds": 4.0, "fire_radius": 6.0, "fire_dps": 8 }
+					}
+				]
+			},
+			{
+				"id": "heavy",
+				"name": "重炮",
+				"cost": 700,
+				"tip": "打单体：一发很重，射得更远，但爆炸很小",
+				"change": { "damage": 50, "cooldown": 1.0, "range": 65, "splash_radius": 3.5, "splash_targets": 4 },
+				"next": [
+					{
+						"id": "lofty",
+						"name": "俯射炮",
+						"cost": 1100,
+						"tip": "塔比目标每高 1 米，射程多 1 米，最多多 45 米。把它建在高台上",
+						"change": { "height_reach": 1.0, "height_reach_max": 45 }
+					},
+					{
+						"id": "quake",
+						"name": "震岳炮",
+						"cost": 1100,
+						"tip": "命中减速 40%，并把正在爬墙的敌人震回墙脚。建在土堤旁边",
+						"change": { "slow": 0.4, "slow_seconds": 2.0, "knock_climbers": 1 }
+					}
+				]
+			}
+		]
+	},
+	"catapult": {
+		"name": "投石塔",
+		"key": "Y",
+		"icon": "catapult",
+		"tip": "投石塔：石头抛过山丘，360° 都能打。塔比敌人越高，砸得越狠。近处打不到",
+		"model": "catapult",
+		"pivot_height": 7.6,
+		"cost": 900,
+		"cone_degrees": 360,
+		"lob": true,
+		"range": 42,
+		"min_range": 14,
+		"damage": 8,
+		"height_damage": 1.0,
+		"height_damage_max": 27,
+		"cooldown": 2.1,
+		"splash_radius": 6.0,
+		"splash_targets": 8,
+		"shot_speed": 28,
+		"upgrades": [
+			{
+				"id": "boulder",
+				"name": "巨石投",
+				"cost": 700,
+				"tip": "石头更大：砸中更多人，高处落下的加成也更多",
+				"change": { "damage": 14, "cooldown": 2.4, "splash_radius": 8.0, "splash_targets": 10, "height_damage": 1.4, "height_damage_max": 40 },
+				"next": [
+					{
+						"id": "meteor",
+						"name": "落星投",
+						"cost": 1100,
+						"tip": "比敌人每高 1 米，伤害多 2.5，最多多 70。建在最高的山顶",
+						"change": { "height_damage": 2.5, "height_damage_max": 70 }
+					},
+					{
+						"id": "rubble",
+						"name": "碎岩投",
+						"cost": 1100,
+						"tip": "碎石铺满落点，打中的敌人减速 35%，爆炸更大",
+						"change": { "slow": 0.35, "slow_seconds": 2.5, "splash_radius": 10.0, "splash_targets": 12 }
+					}
+				]
+			},
+			{
+				"id": "volley",
+				"name": "连投",
+				"cost": 700,
+				"tip": "投得更快更远，适合守长长的一段路",
+				"change": { "cooldown": 1.1, "range": 50 },
+				"next": [
+					{
+						"id": "firepot",
+						"name": "火罐投",
+						"cost": 1100,
+						"tip": "投出火油罐，落点烧 5 秒",
+						"change": { "fire_seconds": 5.0, "fire_radius": 7.0, "fire_dps": 9 }
+					},
+					{
+						"id": "farthrow",
+						"name": "远投",
+						"cost": 1100,
+						"tip": "射程到 72 米，但 22 米以内打不到",
+						"change": { "range": 72, "min_range": 22 }
+					}
+				]
+			}
+		]
+	},
+	"sniper": {
+		"name": "狙击塔",
+		"key": "U",
+		"icon": "sniper",
+		"tip": "狙击塔：射程很远、一发很重，但打不到近处。建在远处看得见路的地方",
+		"model": "sniper",
+		"pivot_height": 13.6,
+		"cost": 1100,
+		"cone_degrees": 36,
+		"range": 115,
+		"min_range": 40,
+		"damage": 120,
+		"cooldown": 3.2,
+		"splash_radius": 0.0,
+		"splash_targets": 1,
+		"shot_speed": 240,
+		"upgrades": [
+			{
+				"id": "quick",
+				"name": "速射狙",
+				"cost": 700,
+				"tip": "装填更快",
+				"change": { "cooldown": 2.0 },
+				"next": [
+					{
+						"id": "twin",
+						"name": "连珠狙",
+						"cost": 1100,
+						"tip": "几乎连发，专点落单的敌人",
+						"change": { "cooldown": 1.1 }
+					},
+					{
+						"id": "eagle",
+						"name": "鹰眼狙",
+						"cost": 1100,
+						"tip": "比目标每高 1 米，射程多 1 米，最多多 50 米",
+						"change": { "range": 125, "height_reach": 1.0, "height_reach_max": 50 }
+					}
+				]
+			},
+			{
+				"id": "heavyshot",
+				"name": "重狙",
+				"cost": 700,
+				"tip": "一发打死任何敌人，射程更远，但装填更慢",
+				"change": { "damage": 240, "cooldown": 3.8, "range": 125 },
+				"next": [
+					{
+						"id": "pin",
+						"name": "钉足狙",
+						"cost": 1100,
+						"tip": "命中减速 60%，并把爬墙的敌人打下来",
+						"change": { "slow": 0.6, "slow_seconds": 3.0, "knock_climbers": 1 }
+					},
+					{
+						"id": "burst",
+						"name": "爆裂狙",
+						"cost": 1100,
+						"tip": "子弹炸开，旁边的人也受伤",
+						"change": { "splash_radius": 5.0, "splash_targets": 4 }
+					}
+				]
+			}
+		]
+	},
+	"stars": {
+		"costs": [600, 800, 1000],
+		"damage_bonus": 0.15
+	},
+	"rules": {
+		"spacing": 9.0,
+		"top_spacing": 7.0,
+		"max_tilt_degrees": 88,
+		"smooth_roughness": 0.3,
+		"max_roughness": 3.5,
+		"foundation_extra_cost": 500,
+		"refund": 0.7
+	}
+}

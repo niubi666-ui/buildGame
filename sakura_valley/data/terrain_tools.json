@@ -1,0 +1,94 @@
+{
+	"cost_per_cubic_metre": 0.08,
+	"routing": {
+		"min_gap_depth": 2.5,
+		"max_span": 45,
+		"tunnel_speed": 1.15
+	},
+	"brush": {
+		"raise_rate": 5.5,
+		"smooth_rate": 6.0,
+		"flatten_rate": 5.0,
+		"pinch_rate": 5.0,
+		"min_radius": 3,
+		"max_radius": 40,
+		"max_pinch_radius": 26,
+		"min_strength": 0.2,
+		"max_strength": 3.0,
+		"max_undo": 20
+	},
+	"presets": [
+		{
+			"id": "hill",
+			"name": "小山丘",
+			"key": "Z",
+			"icon": "raise",
+			"tip": "放一座小山丘，可以逼敌人绕路，也能挡住视线",
+			"shape": "bell",
+			"radius": 22,
+			"height": 10,
+			"adjust": [
+				{ "key": "radius", "name": "半径", "min": 8, "max": 40, "step": 1, "wheel": "ctrl" },
+				{ "key": "height", "name": "高度", "min": 3, "max": 28, "step": 1, "wheel": "alt" }
+			]
+		},
+		{
+			"id": "ridge",
+			"name": "土堤",
+			"key": "X",
+			"icon": "wall",
+			"tip": "放一道长土堤，适合堵住一条路。默认自动伸到两边山坡，也可以自己定长度、宽度和高度",
+			"shape": "ridge",
+			"length": 92,
+			"width": 12,
+			"height": 20,
+			"fit_ends": true,
+			"min_length": 50,
+			"max_length": 230,
+			"adjust": [
+				{ "key": "length", "name": "长度", "min": 30, "max": 230, "step": 2, "wheel": "ctrl" },
+				{ "key": "width", "name": "宽度", "min": 6, "max": 24, "step": 1 },
+				{ "key": "height", "name": "高度", "min": 5, "max": 35, "step": 1, "wheel": "alt" }
+			]
+		},
+		{
+			"id": "pit",
+			"name": "方形大坑",
+			"key": "N",
+			"icon": "lower",
+			"tip": "挖一个方形大坑，敌人要爬下去或者搭桥。滚轮可以旋转",
+			"shape": "box_pit",
+			"length": 30,
+			"width": 22,
+			"depth": 10,
+			"adjust": [
+				{ "key": "length", "name": "长度", "min": 12, "max": 70, "step": 1, "wheel": "ctrl" },
+				{ "key": "width", "name": "宽度", "min": 10, "max": 50, "step": 1 },
+				{ "key": "depth", "name": "深度", "min": 3, "max": 18, "step": 1, "wheel": "alt" }
+			]
+		}
+	],
+	"preset_rise_seconds": 0.7,
+	"tunnel": {
+		"name": "隧道",
+		"key": "M",
+		"icon": "tunnel",
+		"tip": "在山的两侧各点一次，打通一条隧道。隧道里的敌人打不到，但他们会从出口一起出来",
+		"cost_per_metre": 12,
+		"portal_cost": 300,
+		"min_length": 25,
+		"max_length": 230,
+		"max_slope": 0.25,
+		"min_cover": 6.0,
+		"refund": 0.7,
+		"cut_depth": 9.0,
+		"cut_half_width": 5.5
+	},
+	"feel": {
+		"flood_speed": 11.0,
+		"flood_fill_seconds": 1.4,
+		"tree_fall_seconds": 0.8,
+		"rumble_volume_db": -9.0,
+		"camera_shake": 0.35
+	}
+}

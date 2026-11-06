@@ -1,0 +1,77 @@
+{
+	"name": "第二关：云海裂谷",
+	"card": "大地被一道深不见底的裂谷劈开，谷底只有云海。敌人只能走西边那座天然石拱，或者在岬角上现搭木桥。",
+	"goal_hint": "裂谷底下是云海，谁也走不过去，只能过石拱或搭桥\n挖断石拱，逼敌人在你的炮口下慢慢搭桥",
+	"difficulty": 2,
+	"start_gold": 9500,
+	"home_hp": 12,
+	"map": {
+		"generator": "composed",
+		"seed": 211,
+		"ground": 22,
+		"noise": 1.6,
+		"rim": { "height": 16, "width": 30, "openings": [[20, -160, 30]] },
+		"void_level": 0.5,
+		"void_floor": -12,
+		"cloud_height": 1.0,
+		"home": { "x": 0, "z": 128, "goal_radius": 30, "height": 22.4 },
+		"features": [
+			{ "type": "trench", "points": [[-420, -6], [-150, -14], [-90, 6], [-30, -10], [30, 8], [90, -10], [150, 6], [420, -4]], "width": 62, "edge": 3, "rough": 4, "bottom": -12 },
+			{ "type": "ridge", "points": [[-96, -46], [-94, 0], [-98, 46]], "width": 9, "edge": 2.5, "rough": 1.2, "top": 22, "bumps": 0.6 },
+			{ "type": "mesa", "x": 38, "z": -26, "rx": 15, "rz": 17, "edge": 3, "rough": 3, "top": 22 },
+			{ "type": "mesa", "x": 42, "z": 30, "rx": 14, "rz": 16, "edge": 3, "rough": 3, "top": 22 },
+			{ "type": "mesa", "x": 118, "z": -22, "rx": 12, "rz": 12, "edge": 3, "rough": 3, "top": 22 },
+			{ "type": "mesa", "x": 122, "z": 22, "rx": 11, "rz": 11, "edge": 3, "rough": 3, "top": 22 },
+			{ "type": "hill", "x": -40, "z": -95, "radius": 30, "height": 14 },
+			{ "type": "hill", "x": 95, "z": 85, "radius": 34, "height": 16 },
+			{ "type": "hill", "x": -110, "z": 95, "radius": 26, "height": 10 }
+		],
+		"roads": [
+			{ "points": [[20, -160], [10, -110], [-40, -60], [-90, -46], [-94, 0], [-96, 46], [-60, 90], [-20, 118]] }
+		],
+		"rocks": [[-96, 30, 14], [60, 40, 18]],
+		"route_choices": [
+			{ "label": "过石拱", "x": -94, "z": 0 },
+			{ "label": "岬角搭桥", "x": 40, "z": 2 },
+			{ "label": "东岬搭桥", "x": 120, "z": 0 }
+		],
+		"route_labels": [
+			{ "label": "过石拱", "x": -94, "z": 0, "radius": 18 },
+			{ "label": "岬角搭桥", "x": 40, "z": 2, "radius": 22 },
+			{ "label": "东岬搭桥", "x": 120, "z": 0, "radius": 20 }
+		],
+		"no_build_zones": [
+			{ "x": 20, "z": -150, "radius": 30 }
+		]
+	},
+	"gates": [
+		{ "id": "north", "name": "北岸", "x": 20, "z": -150 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 34, "interval": 0.8, "delay": 0 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 44, "interval": 0.7, "delay": 0 },
+				{ "type": "engineer", "gate": "north", "count": 10, "interval": 1.2, "delay": 4 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 54, "interval": 0.6, "delay": 0 },
+				{ "type": "engineer", "gate": "north", "count": 12, "interval": 1.0, "delay": 6 },
+				{ "type": "climber", "gate": "north", "count": 10, "interval": 1.0, "delay": 12 }
+			]
+		}
+	],
+	"views": {
+		"strategy": { "target": [0, 22, 0], "yaw": 0.0, "pitch": -58, "dist": 470, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"arch": { "target": [-94, 22, 0], "yaw": -0.5, "pitch": -34, "dist": 150, "fov": 38, "far": 320, "near": 0, "amount": 0.04 },
+		"headland": { "target": [40, 22, 0], "yaw": 0.4, "pitch": -36, "dist": 150, "fov": 38, "far": 320, "near": 0, "amount": 0.04 },
+		"low": { "target": [0, 30, 80], "yaw": 0.0, "pitch": -12, "dist": 150, "fov": 42, "far": 300, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "arch", "headland", "low"]
+}

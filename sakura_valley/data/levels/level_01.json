@@ -1,0 +1,64 @@
+{
+	"name": "第一关：樱花双道",
+	"card": "一座大山横在家园北边，敌人从两个山口分头绕过来。把两路兵合成一路，是这片山谷的第一课。",
+	"difficulty": 1,
+	"goal_hint": "敌人分两路绕过大山，火力分散守不住\n试着改变他们的路线，把敌人集中起来",
+	"start_gold": 9500,
+	"home_hp": 12,
+	"map": {
+		"generator": "twin_roads",
+		"ground_height": 5.2,
+		"mountain": { "x": 0, "z": -15, "radius_x": 90, "radius_z": 80, "height": 62 },
+		"spur": { "from_z": -86, "to_z": -128, "half_width": 8, "height": 15 },
+		"road_points": [[40, -200], [40, -150], [46, -125], [72, -95], [104, -55], [112, -5], [106, 50], [92, 92], [62, 118], [34, 128], [34, 200]],
+		"road_end_z": 130,
+		"corridor_half_width": 16,
+		"outer_ridge": { "width": 34, "height": 50 },
+		"home": { "x": 0, "z": 138, "goal_radius": 34 },
+		"pond": { "x": 55, "z": 85, "radius_x": 16, "radius_z": 11 },
+		"route_choices": [
+			{ "label": "走西路", "x": -112, "z": -15 },
+			{ "label": "走东路", "x": 112, "z": -15 },
+			{ "label": "翻山", "x": 0, "z": -15 }
+		],
+		"no_build_zones": [
+			{ "x": -40, "z": -150, "radius": 34 },
+			{ "x": 40, "z": -150, "radius": 34 }
+		]
+	},
+	"gates": [
+		{ "id": "west", "name": "西路", "x": -40, "z": -152 },
+		{ "id": "east", "name": "东路", "x": 40, "z": -152 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 20, "interval": 1.1, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 20, "interval": 1.1, "delay": 0 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 28, "interval": 0.9, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 28, "interval": 0.9, "delay": 0 },
+				{ "type": "engineer", "gate": "west", "count": 6, "interval": 1.5, "delay": 8 },
+				{ "type": "engineer", "gate": "east", "count": 6, "interval": 1.5, "delay": 8 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 32, "interval": 0.85, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 32, "interval": 0.85, "delay": 0 },
+				{ "type": "climber", "gate": "west", "count": 6, "interval": 1.2, "delay": 10 },
+				{ "type": "climber", "gate": "east", "count": 6, "interval": 1.2, "delay": 10 }
+			]
+		}
+	],
+	"views": {
+		"strategy": { "target": [0, 6, 2], "yaw": 0.0, "pitch": -58, "dist": 470, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"north": { "target": [0, 6, -70], "yaw": 0.0, "pitch": -40, "dist": 190, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"south": { "target": [0, 6, 85], "yaw": 0.0, "pitch": -40, "dist": 190, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"low": { "target": [0, 18, 70], "yaw": 0.0, "pitch": -12, "dist": 150, "fov": 42, "far": 260, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "north", "south", "low"]
+}

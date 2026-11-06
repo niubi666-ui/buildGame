@@ -1,0 +1,8 @@
+{
+	"strategies": {
+		"a_guard_arch": { "goal": "any", "terrain": [], "zones": [[-94, 30, 45]] },
+		"b_cut_arch_guard_headland": { "goal": "win", "terrain": [{ "dig": [-95, 0, 9, -12] }], "zones": [[40, 40, 40], [40, -40, 40]] },
+		"n_naive_home": { "goal": "lose", "terrain": [], "zones": [[-40, 80, 50]], "naive": true },
+		"n_naive_road": { "goal": "lose", "terrain": [], "zones": [[-94, 50, 40], [-40, -70, 40]], "alternate": true, "naive": true }
+	}
+}

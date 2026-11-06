@@ -1,0 +1,8 @@
+{
+	"strategies": {
+		"a_no_terrain": { "goal": "any", "terrain": [], "zones": [[-10, 0, 60], [70, 70, 45]], "alternate": true },
+		"b_dam_guard_delta": { "goal": "win", "terrain": [{ "raise": [40, -110, 20, 7] }], "zones": [[0, 20, 55]] },
+		"b2_dam_guard_dam": { "goal": "any", "terrain": [{ "raise": [40, -110, 20, 7] }], "zones": [[20, -90, 45], [0, 20, 50]], "alternate": true },
+		"n_naive": { "goal": "lose", "terrain": [], "zones": [[-20, 60, 50], [70, 90, 40]], "alternate": true, "naive": true }
+	}
+}

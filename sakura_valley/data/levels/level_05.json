@@ -1,0 +1,86 @@
+{
+	"name": "第五关：火山环城",
+	"card": "家园建在一座熄灭的火山口里，外环和内环山壁的缺口错开排列。三路敌人得先钻进外环，在环沟里绕一段，再从内环缺口冲进来。",
+	"goal_hint": "三路敌人各找最近的缺口，三处同时守是守不住的\n用高墙堵住内环的两个缺口，把三路敌人赶进同一个缺口，再把塔放上内环山壁居高临下",
+	"difficulty": 4,
+	"start_gold": 11000,
+	"home_hp": 12,
+	"map": {
+		"generator": "composed",
+		"seed": 509,
+		"ground": 6,
+		"noise": 1.8,
+		"rim": { "height": 30, "width": 22, "openings": [[0, -160, 30], [-160, 70, 30], [160, 70, 30]] },
+		"home": { "x": 0, "z": 4, "goal_radius": 28, "height": 8.4 },
+		"features": [
+			{ "type": "ring", "x": 0, "z": 4, "radius": 108, "width": 8, "edge": 6, "rough": 3, "top": 36, "bumps": 1.5, "gaps": [[-40, 9], [80, 9], [200, 9]] },
+			{ "type": "ring", "x": 0, "z": 4, "radius": 70, "width": 10, "edge": 6, "rough": 3, "top": 42, "bumps": 2.5, "gaps": [[-90, 8], [30, 8], [150, 8]] },
+			{ "type": "flat", "x": 0, "z": 4, "radius": 50, "edge": 8, "rough": 3, "top": 8.4, "op": "max" },
+			{ "type": "lake", "x": 34, "z": -26, "rx": 11, "rz": 7, "edge": 5, "depth": 9 },
+			{ "type": "hill", "x": -132, "z": -128, "radius": 30, "height": 14 },
+			{ "type": "hill", "x": 132, "z": -128, "radius": 30, "height": 12 },
+			{ "type": "hill", "x": 0, "z": 150, "radius": 34, "height": 12 }
+		],
+		"roads": [
+			{ "points": [[0, -160], [40, -120], [83, -65]] },
+			{ "points": [[-160, 70], [-130, 10], [-101, -33]] },
+			{ "points": [[160, 70], [80, 100], [19, 110]] }
+		],
+		"rocks": [[-40, -48, 12], [56, 50, 12]],
+		"route_choices": [
+			{ "label": "北缺口", "x": 0, "z": -66 },
+			{ "label": "东南缺口", "x": 61, "z": 39 },
+			{ "label": "西南缺口", "x": -61, "z": 39 }
+		],
+		"route_labels": [
+			{ "label": "北缺口", "x": 0, "z": -66, "radius": 14 },
+			{ "label": "东南缺口", "x": 61, "z": 39, "radius": 14 },
+			{ "label": "西南缺口", "x": -61, "z": 39, "radius": 14 }
+		],
+		"no_build_zones": [
+			{ "x": 0, "z": -150, "radius": 24 },
+			{ "x": -150, "z": 70, "radius": 24 },
+			{ "x": 150, "z": 70, "radius": 24 }
+		]
+	},
+	"gates": [
+		{ "id": "north", "name": "北路", "x": 0, "z": -150 },
+		{ "id": "west", "name": "西路", "x": -150, "z": 70 },
+		{ "id": "east", "name": "东路", "x": 150, "z": 70 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 14, "interval": 1.2, "delay": 0 },
+				{ "type": "walker", "gate": "west", "count": 14, "interval": 1.2, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 14, "interval": 1.2, "delay": 0 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 18, "interval": 1.0, "delay": 0 },
+				{ "type": "walker", "gate": "west", "count": 18, "interval": 1.0, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 18, "interval": 1.0, "delay": 0 },
+				{ "type": "engineer", "gate": "west", "count": 5, "interval": 1.5, "delay": 8 },
+				{ "type": "engineer", "gate": "east", "count": 5, "interval": 1.5, "delay": 8 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 22, "interval": 0.9, "delay": 0 },
+				{ "type": "walker", "gate": "west", "count": 22, "interval": 0.9, "delay": 0 },
+				{ "type": "walker", "gate": "east", "count": 22, "interval": 0.9, "delay": 0 },
+				{ "type": "climber", "gate": "north", "count": 5, "interval": 1.2, "delay": 10 },
+				{ "type": "climber", "gate": "west", "count": 5, "interval": 1.2, "delay": 10 },
+				{ "type": "climber", "gate": "east", "count": 5, "interval": 1.2, "delay": 10 }
+			]
+		}
+	],
+	"views": {
+		"strategy": { "target": [0, 8, 0], "yaw": 0.0, "pitch": -60, "dist": 470, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"north": { "target": [0, 10, -70], "yaw": 0.0, "pitch": -38, "dist": 190, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"south": { "target": [0, 10, 50], "yaw": 3.14, "pitch": -38, "dist": 200, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"low": { "target": [0, 12, 10], "yaw": 0.6, "pitch": -22, "dist": 250, "fov": 42, "far": 400, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "north", "south", "low"]
+}

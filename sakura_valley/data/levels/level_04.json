@@ -1,0 +1,82 @@
+{
+	"name": "第四关：樱川三角洲",
+	"card": "樱川在北边分成两股，把家园围成一座三角洲。船队顺流直下，步兵要渡河才能过来。",
+	"goal_hint": "河水只从北边流进来：在上游筑一道坝，下游整片三角洲都会干涸\n留着河，船队就走水路；断了河，所有人都得走干河床",
+	"difficulty": 3,
+	"start_gold": 11500,
+	"home_hp": 12,
+	"map": {
+		"generator": "composed",
+		"seed": 401,
+		"flowing_water": true,
+		"ground": 6,
+		"noise": 1.4,
+		"rim": { "height": 34, "width": 34, "openings": [[-90, -160, 30], [75, -160, 30], [52, -170, 22], [125, 175, 30], [-62, 175, 30]] },
+		"home": { "x": 0, "z": 124, "goal_radius": 30, "height": 6.4 },
+		"features": [
+			{ "type": "trench", "water": true, "points": [[50, -230], [52, -130], [24, -82], [-24, -46], [-28, 0], [10, 36], [60, 56], [100, 92], [126, 220]], "width": 18, "edge": 7, "rough": 3, "bottom": -4 },
+			{ "type": "trench", "points": [[-24, -46], [-80, -20], [-110, 30], [-96, 92], [-62, 220]], "width": 16, "edge": 7, "rough": 3, "bottom": -4 },
+			{ "type": "mesa", "x": -62, "z": -28, "rx": 10, "rz": 6, "yaw": -25, "edge": 3, "rough": 2, "top": 6.5 },
+			{ "type": "hill", "x": -60, "z": 40, "radius": 30, "height": 12 },
+			{ "type": "hill", "x": 40, "z": -40, "radius": 24, "height": 9 },
+			{ "type": "hill", "x": 110, "z": -60, "radius": 34, "height": 16 },
+			{ "type": "hill", "x": -120, "z": -110, "radius": 30, "height": 14 },
+			{ "type": "lake", "x": -45, "z": 80, "rx": 14, "rz": 9, "edge": 6, "depth": 8 }
+		],
+		"roads": [
+			{ "points": [[-90, -160], [-80, -110], [-40, -70], [-10, -20], [-20, 40], [-10, 90], [-4, 110]] },
+			{ "points": [[75, -160], [90, -100], [100, -40], [120, 20], [70, 110], [24, 122]] }
+		],
+		"rocks": [[-60, 40, 20], [110, -60, 18]],
+		"route_choices": [
+			{ "label": "走西岸", "x": -100, "z": 0 },
+			{ "label": "走中洲", "x": -5, "z": 0 },
+			{ "label": "走东岸", "x": 100, "z": 20 }
+		],
+		"route_labels": [
+			{ "label": "走西岸", "x": -110, "z": -10, "radius": 28 },
+			{ "label": "走东岸", "x": 110, "z": 10, "radius": 30 },
+			{ "label": "走中洲", "x": -5, "z": 0, "radius": 30 }
+		],
+		"no_build_zones": [
+			{ "x": -90, "z": -150, "radius": 26 },
+			{ "x": 76, "z": -150, "radius": 22 }
+		]
+	},
+	"gates": [
+		{ "id": "west", "name": "西路", "x": -90, "z": -150 },
+		{ "id": "river", "name": "河口", "x": 76, "z": -150 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 22, "interval": 1.0, "delay": 0 },
+				{ "type": "boatman", "gate": "river", "count": 14, "interval": 1.3, "delay": 2 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 26, "interval": 0.9, "delay": 0 },
+				{ "type": "walker", "gate": "river", "count": 14, "interval": 1.0, "delay": 0 },
+				{ "type": "boatman", "gate": "river", "count": 18, "interval": 1.1, "delay": 4 },
+				{ "type": "engineer", "gate": "west", "count": 6, "interval": 1.4, "delay": 8 }
+			]
+		},
+		{
+			"groups": [
+				{ "type": "walker", "gate": "west", "count": 22, "interval": 0.85, "delay": 0 },
+				{ "type": "walker", "gate": "river", "count": 14, "interval": 0.9, "delay": 0 },
+				{ "type": "boatman", "gate": "river", "count": 14, "interval": 1.0, "delay": 4 },
+				{ "type": "climber", "gate": "west", "count": 8, "interval": 1.2, "delay": 10 },
+				{ "type": "engineer", "gate": "river", "count": 6, "interval": 1.4, "delay": 10 }
+			]
+		}
+	],
+	"views": {
+		"strategy": { "target": [0, 6, 0], "yaw": 0.0, "pitch": -58, "dist": 470, "fov": 38, "far": 900, "near": 0, "amount": 0.04 },
+		"fork": { "target": [-20, 4, -50], "yaw": 0.0, "pitch": -40, "dist": 180, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"delta": { "target": [0, 4, 70], "yaw": 0.0, "pitch": -40, "dist": 190, "fov": 38, "far": 300, "near": 0, "amount": 0.04 },
+		"low": { "target": [40, 12, 60], "yaw": 0.6, "pitch": -12, "dist": 150, "fov": 42, "far": 260, "near": 0, "amount": 0.04 }
+	},
+	"view_order": ["strategy", "fork", "delta", "low"]
+}

@@ -1,0 +1,9 @@
+[configuration]
+
+entry_symbol = "pathcore_init"
+compatibility_minimum = "4.7"
+
+[libraries]
+
+windows.debug.x86_64 = "res://bin/pathcore.dll"
+windows.release.x86_64 = "res://bin/pathcore.dll"

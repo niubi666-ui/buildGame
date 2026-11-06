@@ -1,0 +1,20 @@
+{
+	"name": "试验场",
+	"card": "钱用不完，敌人源源不断。随便捏地形、摆塔，看看敌人怎么改道。",
+	"difficulty": 0,
+	"goal_hint": "自由试验地形和防御塔。敌人会一直来，没有胜负",
+	"start_gold": 30000,
+	"home_hp": 0,
+	"endless": true,
+	"map": { "generator": "valley" },
+	"gates": [
+		{ "id": "north", "name": "北路", "x": -5.84, "z": -150 }
+	],
+	"waves": [
+		{
+			"groups": [
+				{ "type": "walker", "gate": "north", "count": 60, "interval": 0.45, "delay": 0 }
+			]
+		}
+	]
+}
